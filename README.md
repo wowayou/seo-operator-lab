@@ -7,6 +7,17 @@ This repository contains the WordPress-first Phase B implementation from the PRD
 
 Progress, accounts, scoring, persistence, export, LLM features, and the remaining three Quests are intentionally deferred.
 
+## Live site
+
+The `main` branch is deployed to GitHub Pages:
+
+https://wowayou.github.io/seo-operator-lab/
+
+The production build uses relative asset paths, so the same artifact can later
+move to a custom domain without changing the Vite base path. After choosing a
+domain, configure it under **Settings -> Pages -> Custom domain** and point the
+domain's DNS record to GitHub Pages.
+
 ## Local folder
 
 The project is located at:
@@ -53,3 +64,7 @@ CHROME_PATH=/path/to/chromium npm run test:browser
 ```
 
 See [docs/architecture.md](docs/architecture.md), [docs/quest-authoring.md](docs/quest-authoring.md), [docs/validator-authoring.md](docs/validator-authoring.md), and [docs/quest-scaling-analysis.md](docs/quest-scaling-analysis.md) for the maintenance model and research notes. [docs/build-log.md](docs/build-log.md) records the observed Playground evidence.
+
+## License
+
+Released under the [MIT License](LICENSE).
