@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f4f6f5" />
+    <title>重复的 Canonical | SEO Operator Lab</title>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="SEO Operator Lab 首页">
+        <span class="brand-mark" aria-hidden="true"><i data-lucide="scan-search"></i></span>
+        <span>SEO Operator Lab</span>
+      </a>
+      <div class="runtime-indicator">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="runtime-status" role="status" data-state="booting">正在准备实验环境</span>
+      </div>
+    </header>
+
+    <main class="workspace" data-result="idle">
+      <aside class="mission-panel" aria-labelledby="challenge-heading">
+        <div class="quest-switcher">
+          <label for="quest-select">当前 Quest</label>
+          <select id="quest-select" aria-label="选择训练任务"></select>
+        </div>
+
+        <div class="quest-meta">
+          <span id="phase-label" class="phase-label">Phase B · Quest 01</span>
+          <span id="difficulty" class="difficulty" aria-label="难度 2 星">难度 2 / 5</span>
+        </div>
+
+        <h1 id="challenge-heading">重复的 Canonical</h1>
+        <p id="mission-brief" class="mission-brief">目标页暴露了相互冲突的 canonical。找出额外输出的来源，修复它，并用运行结果证明没有猜错。</p>
+
+        <dl class="target-facts">
+          <div>
+            <dt>目标页面</dt>
+            <dd><code id="target-url">/sample-product/</code></dd>
+          </div>
+          <div>
+            <dt>完成条件</dt>
+            <dd id="completion-condition">目标 canonical 正确 · 回归检查通过</dd>
+          </div>
+        </dl>
+
+        <div id="advanced-active" class="advanced-active" hidden>
+          <i data-lucide="shield-check" aria-hidden="true"></i>
+          <div>
+            <strong id="advanced-active-title">生产级改进进行中</strong>
+            <p id="advanced-active-description"></p>
+            <p id="advanced-active-why" class="advanced-active-why"></p>
+            <ol id="advanced-active-steps" class="advanced-active-steps"></ol>
+            <div class="advanced-active-snippet">
+              <code id="advanced-active-instruction"></code>
+              <button id="copy-advanced-active-instruction" class="icon-button" type="button" aria-label="复制生产级修复代码" title="复制修复代码">
+                <i data-lucide="copy" aria-hidden="true"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <ol class="lab-steps" aria-label="实验进度">
+          <li id="step-environment" data-state="current"><span>1</span><strong>环境</strong></li>
+          <li id="step-evidence" data-state="pending"><span>2</span><strong>证据</strong></li>
+          <li id="step-repair" data-state="pending"><span>3</span><strong>修复</strong></li>
+        </ol>
+
+        <div class="controls" aria-label="实验操作">
+          <button id="validate" class="button button-primary" type="button" disabled>
+            <i data-lucide="scan-search" aria-hidden="true"></i>
+            <span>运行验证</span>
+          </button>
+          <button id="edit-plugin" class="button button-secondary" type="button" disabled>
+            <i data-lucide="wrench" aria-hidden="true"></i>
+            <span id="edit-plugin-label">打开插件编辑器</span>
+          </button>
+          <button id="reset" class="button button-quiet" type="button">
+            <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+            <span>重置环境</span>
+          </button>
+        </div>
+        <p id="editor-location" class="editor-location">后台路径：工具 → 插件文件编辑器</p>
+
+        <section class="panel-section validation-section" aria-labelledby="validation-heading">
+          <div class="section-heading">
+            <h2 id="validation-heading">验证结果</h2>
+            <span id="result-badge" class="result-badge" data-result="idle">未运行</span>
+          </div>
+          <div id="validation-output" class="validation-output" data-result="idle" aria-live="polite">
+            <div class="empty-state">
+              <i data-lucide="scan-search" aria-hidden="true"></i>
+              <p>先运行一次验证，建立故障基线。</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="review-section" class="panel-section review-section" aria-labelledby="review-heading" hidden>
+          <div class="section-heading">
+            <h2 id="review-heading">实现复盘</h2>
+            <span id="review-badge" class="review-badge"></span>
+          </div>
+          <p id="review-summary" class="review-summary"></p>
+          <ul id="review-notes" class="review-notes"></ul>
+          <div id="advanced-challenge" class="advanced-challenge" hidden>
+            <strong id="advanced-title"></strong>
+            <p id="advanced-description"></p>
+            <p id="advanced-why" class="advanced-why"></p>
+            <ol id="advanced-steps" class="advanced-steps"></ol>
+            <div class="advanced-snippet">
+              <code id="advanced-instruction"></code>
+              <button id="copy-advanced-instruction" class="icon-button" type="button" aria-label="复制生产级修复代码" title="复制修复代码">
+                <i data-lucide="copy" aria-hidden="true"></i>
+              </button>
+            </div>
+            <button id="start-advanced" class="button button-secondary" type="button">
+              <i data-lucide="shield-check" aria-hidden="true"></i>
+              <span></span>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel-section hint-section" aria-labelledby="hint-heading">
+          <div class="section-heading">
+            <h2 id="hint-heading">诊断支援</h2>
+            <span id="hint-progress" class="hint-progress">0 / 3</span>
+          </div>
+          <p class="section-note">不熟悉时无需盲猜。提示会从“怎么看证据”逐步推进到“改哪里”。</p>
+          <ol id="hint-list" class="hint-list" aria-live="polite"></ol>
+          <button id="reveal-hint" class="button button-hint" type="button">
+            <i data-lucide="circle-help" aria-hidden="true"></i>
+            <span>显示第一条提示</span>
+          </button>
+          <div class="research-clue">
+            <span>检索线索</span>
+            <code id="search-query">WordPress duplicate canonical wp_head</code>
+            <button id="copy-query" class="icon-button" type="button" aria-label="复制检索线索" title="复制检索线索">
+              <i data-lucide="copy" aria-hidden="true"></i>
+            </button>
+          </div>
+        </section>
+      </aside>
+
+      <section class="runtime-pane" aria-labelledby="playground-heading">
+        <header class="runtime-toolbar">
+          <div>
+            <span class="toolbar-eyebrow">Live runtime</span>
+            <h2 id="playground-heading">WordPress Playground</h2>
+          </div>
+          <div class="runtime-actions">
+            <code id="runtime-target-path">/sample-product/</code>
+            <button id="view-target" class="button button-compact" type="button" disabled>
+              <i data-lucide="eye" aria-hidden="true"></i>
+              <span>查看目标页</span>
+            </button>
+          </div>
+        </header>
+        <div class="iframe-shell">
+          <div id="boot-cover" class="boot-cover">
+            <i data-lucide="loader-circle" aria-hidden="true"></i>
+            <strong>正在创建 WordPress 6.7</strong>
+            <span>首次启动通常需要 30–90 秒</span>
+          </div>
+          <iframe id="wp-playground" title="WordPress Playground 实验环境" loading="eager"></iframe>
+        </div>
+      </section>
+    </main>
+
+    <div id="success-toast" class="success-toast" role="status" aria-live="assertive" data-visible="false">
+      <div class="success-icon" aria-hidden="true"><i data-lucide="circle-check"></i></div>
+      <div class="success-copy">
+        <strong id="success-title">修复已验证</strong>
+        <span id="success-message">目标检查和回归检查均符合预期。</span>
+      </div>
+      <button id="success-reset" class="button button-toast" type="button">
+        <i data-lucide="rotate-ccw" aria-hidden="true"></i>
+        <span>重置反证</span>
+      </button>
+      <button id="dismiss-success" class="icon-button dismiss-success" type="button" aria-label="关闭成功提示" title="关闭">
+        <i data-lucide="x" aria-hidden="true"></i>
+      </button>
+    </div>
+
+    <dialog id="reset-dialog" class="reset-dialog">
+      <form method="dialog">
+        <div class="dialog-icon" aria-hidden="true"><i data-lucide="triangle-alert"></i></div>
+        <h2 id="rebuild-dialog-title">重置当前环境？</h2>
+        <p id="rebuild-dialog-description">插件修改会被丢弃，Blueprint 会重新创建最初的故障状态。</p>
+        <div class="dialog-actions">
+          <button id="cancel-reset" class="button button-secondary" value="cancel">取消</button>
+          <button id="confirm-reset" class="button button-danger" value="confirm" type="button">确认重置</button>
+        </div>
+      </form>
+    </dialog>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

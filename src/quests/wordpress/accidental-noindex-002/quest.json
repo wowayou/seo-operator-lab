@@ -1,0 +1,56 @@
+{
+  "$schema": "../../../../schemas/quest.schema.json",
+  "id": "wp-accidental-noindex-002",
+  "phase": "B",
+  "sequence": 2,
+  "platform": "wordpress",
+  "title": "误加的 Noindex",
+  "description": "一页应被索引的公开内容输出了 noindex。修复目标内容，但保留私有参考页的 noindex。",
+  "difficulty": 2,
+  "skills": ["robots-meta", "wordpress-conditionals", "regression-testing"],
+  "environment": { "wordpress": "6.7", "php": "8.3" },
+  "objective": {
+    "summary": "移除目标内容的 noindex，同时保留控制页的刻意 noindex。",
+    "completion": "目标内容可索引 · 私有参考页仍保持 noindex"
+  },
+  "target": { "url": "/field-notes/" },
+  "editor": {
+    "file": "seo-lab-robots-rules/seo-lab-robots-rules.php",
+    "label": "打开规则编辑器",
+    "location": "后台路径：工具 → 插件文件编辑器"
+  },
+  "hints": [
+    {
+      "level": 1,
+      "title": "先区分目标与控制页",
+      "text": "运行验证并查看两组证据。目标内容应该可索引，但私有参考页本来就应该保持 noindex。"
+    },
+    {
+      "level": 2,
+      "title": "定位 robots 的最终输出",
+      "text": "检查最终 HTML 中的 robots meta，并追踪谁通过 wp_head 写入它。不要把所有 noindex 一概删除。",
+      "href": "https://developer.wordpress.org/reference/hooks/wp_robots/",
+      "linkLabel": "查看 wp_robots 官方文档"
+    },
+    {
+      "level": 3,
+      "title": "只修正错误条件",
+      "text": "打开 Robots Rules，首次点击 I understand。查找 data-seo-lab=\"noindex-rule\"；移除 field-notes 页的条件，保留 private-reference 的 noindex。",
+      "action": "open-editor"
+    }
+  ],
+  "searchQuery": "WordPress accidental noindex wp_head conditional tag",
+  "success": {
+    "title": "索引规则与回归均已验证",
+    "message": "目标内容可索引，私有参考页仍保持 noindex。"
+  },
+  "postPassReview": {
+    "title": "实现复盘",
+    "notes": [
+      "robots 规则必须按页面意图区分，不能把 noindex 本身当成一律错误。",
+      "真实项目应优先使用站点配置或稳定 filter，并为应保持 noindex 的页面保留回归测试。"
+    ]
+  },
+  "review": { "intervalsDays": [2, 7, 21] },
+  "scoring": { "base": 100, "hintPenalty": [0, 5, 12, 25], "solutionPenalty": 45 }
+}

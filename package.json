@@ -1,0 +1,27 @@
+{
+  "name": "seo-operator-lab",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run check && vite build",
+    "check": "tsc --noEmit && npm run validate:quests",
+    "quest:new": "node scripts/create-quest.mjs",
+    "validate:quests": "node scripts/validate-quests.mjs",
+    "test": "vitest run",
+    "test:browser": "node scripts/browser-smoke.mjs"
+  },
+  "dependencies": {
+    "@wp-playground/client": "3.1.50",
+    "lucide": "^1.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "ajv": "^8.20.0",
+    "playwright-core": "^1.62.1",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.0",
+    "vitest": "^4.1.11"
+  }
+}

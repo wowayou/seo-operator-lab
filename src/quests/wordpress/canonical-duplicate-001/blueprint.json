@@ -1,0 +1,26 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/sample-product/",
+  "preferredVersions": { "php": "8.3", "wp": "6.7" },
+  "login": true,
+  "steps": [
+    { "step": "mkdir", "path": "/wordpress/wp-content/plugins/seo-lab-product-suite" },
+    {
+      "step": "writeFile",
+      "path": "/wordpress/wp-content/plugins/seo-lab-product-suite/seo-lab-product-suite.php",
+      "data": "<?php\n/**\n * Plugin Name: SEO Lab - Product Suite\n * Description: Provides Product schema and a deliberately conflicting canonical.\n */\nfunction seo_lab_product_suite_duplicate_canonical() {\n    if (is_page('sample-product')) {\n        echo \"\\n\";\n        echo '<link rel=\"canonical\" href=\"https://example.test/legacy-product/\" data-seo-spike=\"duplicate\">';\n        echo \"\\n\";\n    }\n}\nfunction seo_lab_product_suite_schema() {\n    if (is_page('sample-product')) {\n        echo '<script type=\"application/ld+json\" data-seo-lab=\"product-schema\">';\n        echo wp_json_encode([\n            '@context' => 'https://schema.org',\n            '@type' => 'Product',\n            'name' => 'Sample Product',\n        ]);\n        echo '</script>';\n    }\n}\nadd_action('wp_head', 'seo_lab_product_suite_duplicate_canonical', 20);\nadd_action('wp_head', 'seo_lab_product_suite_schema', 30);\n"
+    },
+    { "step": "activatePlugin", "pluginPath": "seo-lab-product-suite/seo-lab-product-suite.php" },
+    { "step": "mkdir", "path": "/wordpress/wp-content/plugins/seo-lab-site-overrides" },
+    {
+      "step": "writeFile",
+      "path": "/wordpress/wp-content/plugins/seo-lab-site-overrides/seo-lab-site-overrides.php",
+      "data": "<?php\n/**\n * Plugin Name: SEO Lab - Site Overrides\n * Description: Site-owned integration overrides that survive vendor updates.\n */\nadd_action('init', function () {\n    // Add site-owned hook overrides here.\n});\n"
+    },
+    { "step": "activatePlugin", "pluginPath": "seo-lab-site-overrides/seo-lab-site-overrides.php" },
+    {
+      "step": "runPHP",
+      "code": "<?php\nrequire_once '/wordpress/wp-load.php';\nif (!get_page_by_path('sample-product', OBJECT, 'page')) {\n    wp_insert_post([\n        'post_title' => 'Sample Product',\n        'post_name' => 'sample-product',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>Phase B canonical target page.</p>',\n    ]);\n}\n$home = get_page_by_path('lab-home', OBJECT, 'page');\nif (!$home) {\n    $home_id = wp_insert_post([\n        'post_title' => 'SEO Lab Home',\n        'post_name' => 'lab-home',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>Regression control page.</p>',\n    ]);\n    update_option('show_on_front', 'page');\n    update_option('page_on_front', $home_id);\n}\n"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/field-notes/",
+  "preferredVersions": { "php": "8.3", "wp": "6.7" },
+  "login": true,
+  "steps": [
+    { "step": "mkdir", "path": "/wordpress/wp-content/plugins/seo-lab-robots-rules" },
+    {
+      "step": "writeFile",
+      "path": "/wordpress/wp-content/plugins/seo-lab-robots-rules/seo-lab-robots-rules.php",
+      "data": "<?php\n/**\n * Plugin Name: SEO Lab - Robots Rules\n * Description: Contains one accidental and one intentional noindex rule.\n */\nfunction seo_lab_robots_rules_output() {\n    if (is_page('field-notes') || is_page('private-reference')) {\n        echo '<meta name=\"robots\" content=\"noindex, follow\" data-seo-lab=\"noindex-rule\">';\n    }\n}\nadd_action('wp_head', 'seo_lab_robots_rules_output', 20);\n"
+    },
+    { "step": "activatePlugin", "pluginPath": "seo-lab-robots-rules/seo-lab-robots-rules.php" },
+    {
+      "step": "runPHP",
+      "code": "<?php\nrequire_once '/wordpress/wp-load.php';\nupdate_option('permalink_structure', '/%postname%/');\nflush_rewrite_rules();\nif (!get_page_by_path('field-notes', OBJECT, 'page')) {\n    wp_insert_post([\n        'post_title' => 'Field Notes',\n        'post_name' => 'field-notes',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>This public content should be indexable.</p>',\n    ]);\n}\nif (!get_page_by_path('private-reference', OBJECT, 'page')) {\n    wp_insert_post([\n        'post_title' => 'Private Reference',\n        'post_name' => 'private-reference',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>This control page should remain noindex.</p>',\n    ]);\n}\n"
+    }
+  ]
+}
