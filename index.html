@@ -3,29 +3,52 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#f4f6f5" />
-    <title>重复的 Canonical | SEO Operator Lab</title>
+   <meta name="theme-color" content="#f7f9f8" />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+   <title>重复的 Canonical | SEO Operator Lab</title>
   </head>
   <body>
     <header class="topbar">
-      <a class="brand" href="./" aria-label="SEO Operator Lab 首页">
-        <span class="brand-mark" aria-hidden="true"><i data-lucide="scan-search"></i></span>
-        <span>SEO Operator Lab</span>
-      </a>
-      <div class="runtime-indicator">
-        <span class="status-dot" aria-hidden="true"></span>
-        <span id="runtime-status" role="status" data-state="booting">正在准备实验环境</span>
+      <div class="topbar-product">
+        <a class="brand" href="./" aria-label="SEO Operator Lab 首页">
+          <span class="brand-mark" aria-hidden="true"><i data-lucide="scan-search"></i></span>
+          <span>SEO Operator Lab</span>
+        </a>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <span class="workspace-label">训练工作台</span>
+      </div>
+      <div class="environment-status">
+        <span class="environment-label">实验环境</span>
+        <div class="runtime-indicator">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span id="runtime-status" role="status" data-state="booting">正在准备实验环境</span>
+        </div>
+        <button id="toggle-mission-panel" class="icon-button panel-toggle topbar-panel-toggle" type="button" aria-label="关闭任务检查器" aria-controls="mission-panel" aria-expanded="true" title="关闭任务检查器 ([)">
+          <i data-lucide="panel-right-close" aria-hidden="true"></i>
+        </button>
       </div>
     </header>
 
-    <main class="workspace" data-result="idle">
-      <aside class="mission-panel" aria-labelledby="challenge-heading">
-        <div class="quest-switcher">
+    <main class="workspace" data-result="idle" data-layout="focus" data-mission-view="overview">
+      <aside id="mission-panel" class="mission-panel" aria-labelledby="challenge-heading">
+        <header class="mission-inspector-header">
+          <div>
+            <span>Quest inspector</span>
+            <strong>任务工作区</strong>
+          </div>
+        </header>
+        <div class="mission-tabs" role="tablist" aria-label="任务检查器视图">
+          <button id="mission-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="mission-view-overview">任务</button>
+          <button id="mission-tab-results" type="button" role="tab" aria-selected="false" aria-controls="mission-view-results" tabindex="-1">验证</button>
+          <button id="mission-tab-hints" type="button" role="tab" aria-selected="false" aria-controls="mission-view-hints" tabindex="-1">提示</button>
+        </div>
+        <div id="mission-view-overview" class="mission-overview" role="tabpanel" aria-labelledby="mission-tab-overview">
+          <div class="quest-switcher">
           <label for="quest-select">当前 Quest</label>
           <select id="quest-select" aria-label="选择训练任务"></select>
-        </div>
+          </div>
 
-        <div class="quest-meta">
+          <div class="quest-meta">
           <span id="phase-label" class="phase-label">Phase B · Quest 01</span>
           <span id="difficulty" class="difficulty" aria-label="难度 2 星">难度 2 / 5</span>
         </div>
@@ -80,9 +103,11 @@
             <span>重置环境</span>
           </button>
         </div>
-        <p id="editor-location" class="editor-location">后台路径：工具 → 插件文件编辑器</p>
+          <p id="editor-location" class="editor-location">后台路径：工具 → 插件文件编辑器</p>
+        </div>
 
-        <section class="panel-section validation-section" aria-labelledby="validation-heading">
+        <div id="mission-view-results" class="mission-results" role="tabpanel" aria-labelledby="mission-tab-results">
+          <section class="panel-section validation-section" aria-labelledby="validation-heading">
           <div class="section-heading">
             <h2 id="validation-heading">验证结果</h2>
             <span id="result-badge" class="result-badge" data-result="idle">未运行</span>
@@ -93,9 +118,9 @@
               <p>先运行一次验证，建立故障基线。</p>
             </div>
           </div>
-        </section>
+          </section>
 
-        <section id="review-section" class="panel-section review-section" aria-labelledby="review-heading" hidden>
+          <section id="review-section" class="panel-section review-section" aria-labelledby="review-heading" hidden>
           <div class="section-heading">
             <h2 id="review-heading">实现复盘</h2>
             <span id="review-badge" class="review-badge"></span>
@@ -118,9 +143,10 @@
               <span></span>
             </button>
           </div>
-        </section>
+          </section>
+        </div>
 
-        <section class="panel-section hint-section" aria-labelledby="hint-heading">
+        <section id="mission-view-hints" class="panel-section hint-section" role="tabpanel" aria-labelledby="mission-tab-hints">
           <div class="section-heading">
             <h2 id="hint-heading">诊断支援</h2>
             <span id="hint-progress" class="hint-progress">0 / 3</span>
@@ -141,30 +167,44 @@
         </section>
       </aside>
 
-      <section class="runtime-pane" aria-labelledby="playground-heading">
+     <div id="mission-resizer" class="mission-resizer" role="separator" tabindex="0" aria-label="调整任务面板宽度" aria-controls="mission-panel" aria-orientation="vertical" aria-valuemin="340" aria-valuemax="560" aria-valuenow="420"></div>
+
+     <section class="runtime-pane" aria-labelledby="playground-heading">
         <header class="runtime-toolbar">
-          <div>
-            <span class="toolbar-eyebrow">Live runtime</span>
-            <h2 id="playground-heading">WordPress Playground</h2>
+          <div class="runtime-heading">
+            <div>
+              <span class="toolbar-eyebrow"><span aria-hidden="true"></span> Live runtime</span>
+              <h2 id="playground-heading">WordPress Playground</h2>
+            </div>
           </div>
           <div class="runtime-actions">
-            <code id="runtime-target-path">/sample-product/</code>
+            <div class="runtime-url" aria-label="当前目标路径">
+              <span aria-hidden="true"></span>
+              <code id="runtime-target-path">/sample-product/</code>
+            </div>
             <button id="view-target" class="button button-compact" type="button" disabled>
               <i data-lucide="eye" aria-hidden="true"></i>
               <span>查看目标页</span>
             </button>
+            <button id="toggle-runtime-fullscreen" class="icon-button fullscreen-toggle" type="button" aria-label="全屏显示运行环境" aria-controls="runtime-canvas" aria-pressed="false" title="全屏显示运行环境 (F)">
+              <i data-lucide="maximize-2" aria-hidden="true"></i>
+            </button>
           </div>
         </header>
-        <div class="iframe-shell">
+        <div id="runtime-canvas" class="iframe-shell" data-fullscreen="false">
           <div id="boot-cover" class="boot-cover">
             <i data-lucide="loader-circle" aria-hidden="true"></i>
             <strong>正在创建 WordPress 6.7</strong>
             <span>首次启动通常需要 30–90 秒</span>
           </div>
           <iframe id="wp-playground" title="WordPress Playground 实验环境" loading="eager"></iframe>
-        </div>
-      </section>
-    </main>
+          <button id="exit-runtime-fullscreen" class="icon-button fullscreen-exit" type="button" aria-label="退出全屏" title="退出全屏">
+            <i data-lucide="minimize-2" aria-hidden="true"></i>
+          </button>
+      </div>
+    </section>
+
+  </main>
 
     <div id="success-toast" class="success-toast" role="status" aria-live="assertive" data-visible="false">
       <div class="success-icon" aria-hidden="true"><i data-lucide="circle-check"></i></div>

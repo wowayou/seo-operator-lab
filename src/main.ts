@@ -9,6 +9,10 @@ import {
   ExternalLink,
   Eye,
   LoaderCircle,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
   RotateCcw,
   ScanSearch,
   ShieldCheck,
@@ -31,6 +35,10 @@ const iconSet = {
   ExternalLink,
   Eye,
   LoaderCircle,
+  Maximize2,
+  Minimize2,
+  PanelRightClose,
+  PanelRightOpen,
   RotateCcw,
   ScanSearch,
   ShieldCheck,
@@ -77,6 +85,15 @@ const rebuildDialogTitle = requireElement<HTMLElement>('#rebuild-dialog-title');
 const rebuildDialogDescription = requireElement<HTMLElement>('#rebuild-dialog-description');
 const workspace = requireElement<HTMLElement>('.workspace');
 const runtimePane = requireElement<HTMLElement>('.runtime-pane');
+const missionPanel = requireElement<HTMLElement>('.mission-panel');
+const missionResizer = requireElement<HTMLElement>('#mission-resizer');
+const toggleMissionPanelButton = requireElement<HTMLButtonElement>('#toggle-mission-panel');
+const missionTabOverview = requireElement<HTMLButtonElement>('#mission-tab-overview');
+const missionTabResults = requireElement<HTMLButtonElement>('#mission-tab-results');
+const missionTabHints = requireElement<HTMLButtonElement>('#mission-tab-hints');
+const iframeShell = requireElement<HTMLElement>('#runtime-canvas');
+const toggleRuntimeFullscreenButton = requireElement<HTMLButtonElement>('#toggle-runtime-fullscreen');
+const exitRuntimeFullscreenButton = requireElement<HTMLButtonElement>('#exit-runtime-fullscreen');
 const successToast = requireElement<HTMLElement>('#success-toast');
 const successTitle = requireElement<HTMLElement>('#success-title');
 const successMessage = requireElement<HTMLElement>('#success-message');
@@ -123,6 +140,126 @@ let client: PlaygroundClient | undefined;
 let bootPromise: Promise<void> | undefined;
 let revealedHints = 0;
 let advancedMode = false;
+let fallbackFullscreen = false;
+let missionPanelWidth = 420;
+
+type MissionView = 'overview' | 'results' | 'hints';
+
+const MISSION_PANEL_STORAGE_KEY = 'seo-operator-lab:mission-panel-width';
+const MIN_MISSION_PANEL_WIDTH = 340;
+const MAX_MISSION_PANEL_WIDTH = 560;
+
+function getMissionPanelMaxWidth(): number {
+  return Math.max(MIN_MISSION_PANEL_WIDTH, Math.min(MAX_MISSION_PANEL_WIDTH, window.innerWidth - 520));
+}
+
+function persistMissionPanelWidth(): void {
+  try {
+    window.localStorage.setItem(MISSION_PANEL_STORAGE_KEY, String(missionPanelWidth));
+  } catch {
+    // Layout preferences remain session-only when storage is unavailable.
+  }
+}
+
+function setMissionPanelWidth(width: number, persist = false): void {
+  const maxWidth = getMissionPanelMaxWidth();
+  const nextWidth = Math.round(Math.min(maxWidth, Math.max(MIN_MISSION_PANEL_WIDTH, width)));
+  missionPanelWidth = nextWidth;
+  workspace.style.setProperty('--mission-panel-width', `${nextWidth}px`);
+  missionResizer.setAttribute('aria-valuemax', String(maxWidth));
+  missionResizer.setAttribute('aria-valuenow', String(nextWidth));
+  missionResizer.setAttribute('aria-valuetext', `${nextWidth} 像素`);
+  if (persist) persistMissionPanelWidth();
+}
+
+function restoreMissionPanelWidth(): void {
+  let storedWidth = 420;
+  try {
+    const stored = Number(window.localStorage.getItem(MISSION_PANEL_STORAGE_KEY));
+    if (Number.isFinite(stored) && stored > 0) storedWidth = stored;
+  } catch {
+    // Use the default width when storage is unavailable.
+  }
+  setMissionPanelWidth(storedWidth);
+}
+
+function setMissionView(view: MissionView): void {
+  workspace.dataset.missionView = view;
+  const tabs: Array<[MissionView, HTMLButtonElement]> = [
+    ['overview', missionTabOverview],
+    ['results', missionTabResults],
+    ['hints', missionTabHints],
+  ];
+  for (const [tabView, tab] of tabs) {
+    const selected = tabView === view;
+    tab.setAttribute('aria-selected', String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  }
+}
+
+function setMissionPanelCollapsed(collapsed: boolean): void {
+  workspace.dataset.sidebar = collapsed ? 'collapsed' : 'expanded';
+  document.body.dataset.missionPanel = collapsed ? 'collapsed' : 'expanded';
+  missionPanel.inert = collapsed;
+  missionPanel.setAttribute('aria-hidden', String(collapsed));
+  const resizerAvailable = !collapsed;
+  missionResizer.tabIndex = resizerAvailable ? 0 : -1;
+  missionResizer.setAttribute('aria-hidden', String(!resizerAvailable));
+  toggleMissionPanelButton.setAttribute('aria-expanded', String(!collapsed));
+  toggleMissionPanelButton.setAttribute('aria-label', `${collapsed ? '打开' : '收起'}任务检查器`);
+  toggleMissionPanelButton.title = `${collapsed ? '打开' : '收起'}任务检查器 ([)`;
+  const currentIcon = toggleMissionPanelButton.querySelector('svg, i');
+  const iconName = collapsed ? 'panel-right-open' : 'panel-right-close';
+  currentIcon?.replaceWith(createIcon(iconName));
+  refreshIcons(toggleMissionPanelButton);
+}
+
+function renderFullscreenState(active: boolean): void {
+  iframeShell.dataset.fullscreen = active ? (fallbackFullscreen ? 'fallback' : 'native') : 'false';
+  document.body.dataset.runtimeFullscreen = String(active);
+  toggleRuntimeFullscreenButton.setAttribute('aria-pressed', String(active));
+  toggleRuntimeFullscreenButton.setAttribute('aria-label', active ? '退出全屏' : '全屏显示运行环境');
+  toggleRuntimeFullscreenButton.title = active ? '退出全屏 (F)' : '全屏显示运行环境 (F)';
+  const currentIcon = toggleRuntimeFullscreenButton.querySelector('svg, i');
+  currentIcon?.replaceWith(createIcon(active ? 'minimize-2' : 'maximize-2'));
+  refreshIcons(toggleRuntimeFullscreenButton);
+}
+
+async function exitRuntimeFullscreen(): Promise<void> {
+  if (document.fullscreenElement === iframeShell) {
+    try {
+      await document.exitFullscreen();
+    } catch (error) {
+      setRuntimeStatus(`无法退出全屏：${error instanceof Error ? error.message : String(error)}`, 'error');
+    }
+    return;
+  }
+  if (fallbackFullscreen) {
+    fallbackFullscreen = false;
+    renderFullscreenState(false);
+    setRuntimeStatus('已退出全屏运行模式', 'ready');
+  }
+}
+
+async function toggleRuntimeFullscreen(): Promise<void> {
+  if (document.fullscreenElement === iframeShell || fallbackFullscreen) {
+    await exitRuntimeFullscreen();
+    return;
+  }
+
+  if (iframeShell.requestFullscreen && document.fullscreenEnabled) {
+    try {
+      await iframeShell.requestFullscreen({ navigationUI: 'hide' });
+      return;
+    } catch {
+      // Fall through to a viewport-sized mode when native fullscreen is unavailable.
+    }
+  }
+
+  fallbackFullscreen = true;
+  renderFullscreenState(true);
+  setRuntimeStatus('浏览器不支持原生全屏，已进入专注模式', 'ready');
+}
 
 type RuntimeState = 'booting' | 'ready' | 'validating' | 'resetting' | 'error';
 type ProgressStage = 'booting' | 'ready' | 'failed' | 'passed';
@@ -433,6 +570,7 @@ function renderQuest(): void {
   questSelect.value = metadata.id;
   advancedActive.hidden = true;
   advancedMode = false;
+  setMissionView('overview');
   resetHints();
   renderIdleValidation();
 
@@ -482,6 +620,8 @@ async function runValidation(): Promise<void> {
   try {
     const result = await currentQuest.validate(client);
     renderValidation(result);
+    setMissionPanelCollapsed(false);
+    setMissionView('results');
     setProgress(result.passed ? 'passed' : 'failed');
     setRuntimeStatus(
       result.passed
@@ -513,6 +653,8 @@ function pluginEditorUrl(file: string): string {
 
 async function openPluginEditor(file: string): Promise<void> {
   if (!client) return;
+  setMissionPanelCollapsed(false);
+  setMissionView('overview');
   try {
     await client.goTo(pluginEditorUrl(file));
     setRuntimeStatus('已打开插件文件，修改后返回验证', 'ready');
@@ -575,6 +717,8 @@ async function rebuild(request: RebuildRequest): Promise<void> {
   } else {
     advancedMode = false;
     advancedActive.hidden = true;
+    setMissionPanelCollapsed(false);
+    setMissionView('overview');
   }
   setRuntimeStatus('正在重建 Quest 环境', 'resetting');
   setProgress('booting');
@@ -623,6 +767,83 @@ confirmResetButton.addEventListener('click', () => {
 validateButton.addEventListener('click', () => void runValidation());
 editPluginButton.addEventListener('click', () => void openPluginEditor(currentQuest.metadata.editor.file));
 viewTargetButton.addEventListener('click', () => void viewTarget());
+missionTabOverview.addEventListener('click', () => setMissionView('overview'));
+missionTabResults.addEventListener('click', () => setMissionView('results'));
+missionTabHints.addEventListener('click', () => setMissionView('hints'));
+toggleMissionPanelButton.addEventListener('click', () => {
+  setMissionPanelCollapsed(workspace.dataset.sidebar !== 'collapsed');
+});
+
+let resizePointerId: number | undefined;
+missionResizer.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0 || window.matchMedia('(max-width: 900px)').matches) return;
+  resizePointerId = event.pointerId;
+  missionResizer.setPointerCapture(event.pointerId);
+  document.body.classList.add('is-resizing-mission-panel');
+});
+missionResizer.addEventListener('pointermove', (event) => {
+  if (resizePointerId !== event.pointerId) return;
+  const workspaceBounds = workspace.getBoundingClientRect();
+  setMissionPanelWidth(workspaceBounds.right - event.clientX);
+});
+const finishMissionPanelResize = (event: PointerEvent): void => {
+  if (resizePointerId !== event.pointerId) return;
+  if (missionResizer.hasPointerCapture(event.pointerId)) missionResizer.releasePointerCapture(event.pointerId);
+  resizePointerId = undefined;
+  document.body.classList.remove('is-resizing-mission-panel');
+  persistMissionPanelWidth();
+};
+missionResizer.addEventListener('pointerup', finishMissionPanelResize);
+missionResizer.addEventListener('pointercancel', finishMissionPanelResize);
+missionResizer.addEventListener('keydown', (event) => {
+  const nextWidth: Partial<Record<string, number>> = {
+    ArrowLeft: missionPanelWidth + 16,
+    ArrowRight: missionPanelWidth - 16,
+    Home: getMissionPanelMaxWidth(),
+    End: MIN_MISSION_PANEL_WIDTH,
+  };
+  const nextValue = nextWidth[event.key];
+  if (nextValue === undefined) return;
+  event.preventDefault();
+  setMissionPanelWidth(nextValue, true);
+});
+toggleRuntimeFullscreenButton.addEventListener('click', () => void toggleRuntimeFullscreen());
+exitRuntimeFullscreenButton.addEventListener('click', () => void exitRuntimeFullscreen());
+document.addEventListener('fullscreenchange', () => {
+  const active = document.fullscreenElement === iframeShell;
+  if (active) fallbackFullscreen = false;
+  renderFullscreenState(active || fallbackFullscreen);
+  setRuntimeStatus(active ? '运行环境已进入全屏模式' : '已退出全屏运行模式', 'ready');
+});
+window.matchMedia('(max-width: 900px)').addEventListener('change', (event) => {
+  if (event.matches) setMissionPanelCollapsed(false);
+  else {
+    restoreMissionPanelWidth();
+    setMissionPanelCollapsed(false);
+  }
+});
+window.addEventListener('resize', () => {
+  if (window.matchMedia('(max-width: 900px)').matches) return;
+  setMissionPanelWidth(missionPanelWidth);
+});
+document.addEventListener('keydown', (event) => {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || resetDialog.open) return;
+  const target = event.target;
+  if (
+    target instanceof Element &&
+    target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')
+  ) {
+    return;
+  }
+
+  if (event.key.toLowerCase() === 'f') {
+    event.preventDefault();
+    void toggleRuntimeFullscreen();
+  } else if (event.key === '[' && !window.matchMedia('(max-width: 900px)').matches) {
+    event.preventDefault();
+    setMissionPanelCollapsed(workspace.dataset.sidebar !== 'collapsed');
+  }
+});
 resetButton.addEventListener('click', () => requestRebuild({ kind: 'reset' }));
 successResetButton.addEventListener('click', () => requestRebuild({ kind: 'reset' }));
 dismissSuccessButton.addEventListener('click', () => {
@@ -679,6 +900,17 @@ copyAdvancedActiveInstructionButton.addEventListener('click', () => {
   void copyAdvancedInstruction(copyAdvancedActiveInstructionButton, advancedActiveInstruction.textContent ?? '');
 });
 
+restoreMissionPanelWidth();
+setMissionPanelCollapsed(false);
+setMissionView('overview');
+renderFullscreenState(false);
 renderQuest();
 refreshIcons();
 void boot();
+
+// Clean up the obsolete workspace-layout preference from the previous layout switcher.
+try {
+  window.localStorage.removeItem('seo-operator-lab:workspace-layout');
+} catch {
+  // Storage may be unavailable; the stale key is harmless.
+}

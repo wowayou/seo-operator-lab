@@ -80,6 +80,18 @@ Evidence:
 - The browser smoke covers row-level evidence expansion and the production guide's four actionable steps.
 - The Playground client is dynamically imported at boot, reducing the initial application chunk to about 39 kB while keeping the runtime dependency isolated.
 
+## Phase B workspace layout
+
+The two-column page became one opinionated workspace shell:
+
+- The Quest inspector is a right-side panel with three tabs (任务 / 验证 / 提示). Running a validation switches to 验证; opening the Plugin File Editor switches back to 任务. The earlier layout switcher was removed, and its `seo-operator-lab:workspace-layout` preference is cleaned up on boot.
+- The inspector is resizable by pointer drag and by keyboard on the `separator` handle (340-560px, capped so the runtime keeps 520px). The chosen width persists in `seo-operator-lab:mission-panel-width`.
+- Collapsing the inspector does not move or resize the runtime iframe, so WordPress is never re-laid-out mid-task. The reopen control lives in the top bar.
+- The runtime has a fullscreen mode using the native Fullscreen API with a viewport-sized fallback when it is unavailable. `F` toggles fullscreen and `[` toggles the inspector, both suppressed inside text inputs and while the reset dialog is open.
+- Added `public/favicon.svg` so the tab is branded instead of showing Vite's default request.
+
+The browser smoke now asserts the inspector resize (keyboard and pointer), width persistence, the runtime's unchanged geometry across collapse, tab switching, the shortcuts, and that fullscreen fills the viewport. All `artifacts/phase-b-*` screenshots were regenerated from this layout.
+
 ## Constraints and follow-up
 
 1. The hosted Playground still requires network access and can occasionally fail while downloading WASM assets; the UI exposes a retryable environment error.

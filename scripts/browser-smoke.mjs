@@ -53,6 +53,7 @@ async function editOpenPlugin(transform, expectedChange) {
   }, repairedCode);
   await frame.locator('#submit').click();
   await frame.locator('.updated, .notice-success').first().waitFor({ timeout: 30_000 });
+  await page.locator('#mission-tab-overview').click();
 }
 
 async function runValidation(outcome) {
@@ -60,16 +61,134 @@ async function runValidation(outcome) {
   try {
     await page.locator(`#validation-output[data-result="${outcome}"]`).waitFor({ timeout: 30_000 });
   } catch (error) {
-    throw new Error(`${error.message}\nCurrent validation output:\n${await page.locator('#validation-output').innerText()}`);
+    const currentOutput = await page
+      .locator('#validation-output')
+      .innerText({ timeout: 1_000 })
+      .catch(() => `Unavailable; page URL is ${page.url()}`);
+    throw new Error(`${error.message}\nCurrent validation output:\n${currentOutput}`);
   }
   return page.locator('#validation-output').innerText();
 }
 
 async function revealAllHints() {
+  await page.locator('#mission-tab-hints').click();
   while (!(await page.locator('#reveal-hint').isDisabled())) await page.locator('#reveal-hint').click();
   if ((await page.locator('#hint-list .hint-item').count()) !== 3) {
     throw new Error('The active Quest did not reveal exactly three progressive hints');
   }
+}
+
+async function verifyRuntimeFullscreen() {
+  await page.keyboard.press('f');
+  await page.waitForFunction(() => {
+    const canvas = document.querySelector('#runtime-canvas');
+    return canvas?.getAttribute('data-fullscreen') !== 'false';
+  });
+
+  const dimensions = await page.locator('#runtime-canvas').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      width: bounds.width,
+      height: bounds.height,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+    };
+  });
+  if (
+    Math.abs(dimensions.width - dimensions.viewportWidth) > 2 ||
+    Math.abs(dimensions.height - dimensions.viewportHeight) > 2
+  ) {
+    throw new Error(`Runtime did not fill the viewport: ${JSON.stringify(dimensions)}`);
+  }
+
+  await page.locator('#exit-runtime-fullscreen').click();
+  await page.waitForFunction(
+    () => document.querySelector('#runtime-canvas')?.getAttribute('data-fullscreen') === 'false',
+  );
+}
+
+async function verifyWorkspaceShortcuts() {
+  const inspectorToggle = page.locator('#toggle-mission-panel');
+  if (!(await inspectorToggle.isVisible())) throw new Error('Inspector toggle is not visible in the top bar');
+
+  await inspectorToggle.click();
+  await page.waitForFunction(() => document.querySelector('.workspace')?.getAttribute('data-sidebar') === 'collapsed');
+  if ((await inspectorToggle.getAttribute('aria-expanded')) !== 'false') {
+    throw new Error('Mission panel button did not publish its collapsed state');
+  }
+
+  await page.keyboard.press('[');
+  await page.waitForFunction(() => document.querySelector('.workspace')?.getAttribute('data-sidebar') === 'expanded');
+  if ((await inspectorToggle.getAttribute('aria-expanded')) !== 'true') {
+    throw new Error('Mission panel shortcut did not update the button state');
+  }
+
+  await inspectorToggle.click();
+  await page.waitForFunction(() => document.querySelector('.workspace')?.getAttribute('data-sidebar') === 'collapsed');
+  await page.keyboard.press('[');
+  await page.waitForFunction(() => document.querySelector('.workspace')?.getAttribute('data-sidebar') === 'expanded');
+}
+
+async function verifyMissionInspector() {
+  if ((await page.locator('.layout-option').count()) !== 0) {
+    throw new Error('The workspace should use one opinionated inspector layout');
+  }
+  const resizer = page.locator('#mission-resizer');
+  const initialInspectorWidth = await page.locator('.mission-panel').evaluate((element) => element.getBoundingClientRect().width);
+  await resizer.focus();
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForTimeout(250);
+  const resizedInspectorWidth = await page.locator('.mission-panel').evaluate((element) => element.getBoundingClientRect().width);
+  if (Math.abs(resizedInspectorWidth - initialInspectorWidth - 16) > 1) {
+    throw new Error(`Focus inspector resize did not move by 16px: ${JSON.stringify({ initialInspectorWidth, resizedInspectorWidth })}`);
+  }
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(250);
+  const focusResizerBounds = await resizer.boundingBox();
+  if (!focusResizerBounds) throw new Error('Focus inspector resize handle is not visible');
+  const focusResizerCenterX = focusResizerBounds.x + focusResizerBounds.width / 2;
+  await page.mouse.move(focusResizerCenterX, focusResizerBounds.y + 120);
+  await page.mouse.down();
+  await page.mouse.move(focusResizerCenterX - 24, focusResizerBounds.y + 120);
+  await page.mouse.up();
+  await page.waitForTimeout(250);
+  const pointerResizedWidth = await page.locator('.mission-panel').evaluate((element) => element.getBoundingClientRect().width);
+  if (Math.abs(pointerResizedWidth - initialInspectorWidth - 24) > 2) {
+    throw new Error(`Pointer resize did not expand the focus inspector by 24px: ${JSON.stringify({ initialInspectorWidth, pointerResizedWidth })}`);
+  }
+  const storedInspectorWidth = await page.evaluate(() => window.localStorage.getItem('seo-operator-lab:mission-panel-width'));
+  if (storedInspectorWidth !== String(Math.round(pointerResizedWidth))) {
+    throw new Error(`Focus inspector width was not persisted: ${JSON.stringify({ pointerResizedWidth, storedInspectorWidth })}`);
+  }
+  const expandedRuntimeBounds = await page.locator('.runtime-pane').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  });
+  await page.locator('#toggle-mission-panel').click();
+  await page.waitForFunction(() => document.querySelector('.workspace')?.getAttribute('data-sidebar') === 'collapsed');
+  const reopenButtonBounds = await page.locator('#toggle-mission-panel').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  });
+  if (reopenButtonBounds.width === 0 || reopenButtonBounds.height === 0 || reopenButtonBounds.y > 64) {
+    throw new Error(`Focus inspector toggle is not visible in the top bar: ${JSON.stringify(reopenButtonBounds)}`);
+  }
+  const collapsedRuntimeBounds = await page.locator('.runtime-pane').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height };
+  });
+  for (const dimension of ['x', 'y', 'width', 'height']) {
+    if (Math.abs(expandedRuntimeBounds[dimension] - collapsedRuntimeBounds[dimension]) > 1) {
+      throw new Error(`Focus inspector changed runtime ${dimension}: ${JSON.stringify({ expandedRuntimeBounds, collapsedRuntimeBounds })}`);
+    }
+  }
+  await page.locator('#toggle-mission-panel').click();
+  await page.waitForFunction(() => document.querySelector('.workspace')?.getAttribute('data-sidebar') === 'expanded');
+  await page.locator('#mission-tab-hints').click();
+  if ((await page.locator('.workspace').getAttribute('data-mission-view')) !== 'hints') {
+    throw new Error('Focus inspector did not switch to the hints view');
+  }
+  await page.locator('#mission-tab-overview').click();
 }
 
 try {
@@ -95,6 +214,9 @@ try {
   }
 
   if ((await page.locator('#quest-select option').count()) !== 2) throw new Error('Quest registry did not expose two Quests');
+  await verifyMissionInspector();
+  await verifyWorkspaceShortcuts();
+  await verifyRuntimeFullscreen();
   await page.screenshot({ path: 'artifacts/phase-b-canonical-ready.png' });
 
   const canonicalInitial = await runValidation('fail');
@@ -166,6 +288,7 @@ try {
   await page.waitForTimeout(250);
   await page.screenshot({ path: 'artifacts/phase-b-canonical-production-pass.png' });
 
+  await page.locator('#mission-tab-overview').click();
   await page.locator('#quest-select').selectOption('wp-accidental-noindex-002');
   await page.locator('#reset-dialog[open]').waitFor();
   await page.locator('#confirm-reset').click();
