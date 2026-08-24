@@ -82,9 +82,24 @@ so the harness and its reference policies never reach the published site.
 
 Results from the two current Quests are **open-book**: the deployed bundle
 contains the fault Blueprints and the Validator's check ids, so any Agent with web
-access can read the answers. See
+access can read the answers. Every run record carries `heldOut`, which is `false`
+for both of them.
+
+The seam for a trustworthy held-out set is in place. `src/quests/heldout/` is
+gitignored and expected to be a checkout of a separate **private** repository:
+
+```bash
+git clone <private-repo> src/quests/heldout   # never committed here
+npm test                                      # isolation guards must stay green
+```
+
+When that directory is absent, the loader exports nothing and the project builds
+and tests exactly as it does now. `src/agent/heldout-isolation.test.ts` walks the
+import graph from `src/main.ts` and fails if the held-out loader ever becomes
+reachable from the public bundle. Creating the private repository is a deliberate
+human step — it decides what the benchmark measures. See
 [docs/agent-benchmark.md](docs/agent-benchmark.md) for the measurements, the
-disclosure levels, and the held-out Quest set that is still missing.
+disclosure levels, and the leakage threat model.
 
 See [docs/architecture.md](docs/architecture.md), [docs/quest-authoring.md](docs/quest-authoring.md), [docs/validator-authoring.md](docs/validator-authoring.md), [docs/agent-benchmark.md](docs/agent-benchmark.md), and [docs/quest-scaling-analysis.md](docs/quest-scaling-analysis.md) for the maintenance model and research notes. [docs/build-log.md](docs/build-log.md) records the observed Playground evidence.
 

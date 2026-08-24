@@ -74,4 +74,28 @@ Blueprints and validators are imported by the app, so Vite compiles them into `d
 
 The Agent harness is kept out of the artifact instead: Vite bundles only the root `index.html`, so `agent-run.html`, `src/agent/**`, and the reference policies stay unbuilt. This is verified by grepping the built bundle for the harness identifiers.
 
-**Consequence:** Results for the two current Quests measure retrieval as much as diagnosis and must be labeled open-book. A trustworthy benchmark requires a held-out Quest set authored outside this repository. `AgentRunRecord` records `disclosure` but has no "unseen" field, because at present no Quest qualifies. See [agent-benchmark.md](agent-benchmark.md).
+**Consequence:** Results for the two current Quests measure retrieval as much as diagnosis and must be labeled open-book. A trustworthy benchmark requires a held-out Quest set authored outside this repository; ADR-010 builds that seam. See [agent-benchmark.md](agent-benchmark.md).
+
+## ADR-010: Held-out Quests live in a gitignored private checkout
+
+**Status:** Accepted for the seam; no held-out Quest authored yet
+
+ADR-009 leaves one structural fix: a Quest set that is never published. The seam is `src/quests/heldout/`, a gitignored directory holding a checkout of a separate private repository. `src/agent/heldout.ts` loads it through `import.meta.glob` and exports empty collections when the directory is absent, so a clone without the private checkout builds and tests unchanged.
+
+Three properties are enforced rather than documented:
+
+1. `heldout.ts` is imported only by `src/agent/run.ts`, which Vite never builds. The public registry glob stays single-segment (`./wordpress/*/index.ts`) so it cannot descend into a sibling directory.
+2. `AgentRunRecord.heldOut` labels every run and defaults to `false` — a Quest is open-book unless proven otherwise.
+3. `heldout-isolation.test.ts` walks the real import graph from `src/main.ts` and fails if the loader becomes reachable, if a `**` glob appears on the public graph, if the gitignore entry is dropped, or if the public `policies.ts` mentions `heldout`.
+
+Reference repairs for held-out Quests live beside their Quest in the private checkout, because a reference repair is the answer.
+
+**Consequence:** The public repository can carry the benchmark machinery without carrying the benchmark's answers. Creating the private repository stays a human decision: it defines what the benchmark measures. Until one exists, every number the harness produces is open-book, and `heldOut: false` says so on every record.
+
+## ADR-011: A leak-detection test must be proven able to fail
+
+**Status:** Accepted
+
+The first `heldout-isolation.test.ts` passed against four deliberately injected leaks: a side-effect import, a `from` import, a dynamic `import()`, and a widened registry glob. Its extractor required a `from` clause, so `import './x';` was invisible, and a lazy `[\s\S]*?` could skip intervening imports by matching a distant `from`. The suite was green and guarded nothing.
+
+**Consequence:** The extractor enumerates import shapes explicitly and carries a self-check asserting it finds each one. Any test whose only job is to detect a dangerous condition must be validated by producing that condition and observing the failure. A guard that cannot fail is worse than no guard, because it manufactures confidence.

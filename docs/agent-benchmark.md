@@ -133,17 +133,77 @@ against a checkout the Agent cannot read. That splits the Quest set in two:
 - **Held-out Quests** — the actual benchmark. Kept private, rotated after any
   publication of per-Quest results.
 
-Until a held-out set exists, every number this harness produces is open-book. The
-harness records `disclosure` per run, but there is no field asserting the Quest
-was unseen, because at present none are.
+## Held-out Quest mechanics
+
+The seam for that split is built. It is a directory this repository never
+contains:
+
+```text
+src/quests/heldout/<slug>-<seq>/    a checkout of a separate private repo
+  quest.json  blueprint.json  validator.ts  index.ts
+  policies.ts                      reference repairs — the answer, kept private
+```
+
+`src/quests/heldout/` is gitignored. `src/agent/heldout.ts` loads it through two
+globs and exports nothing when the directory is absent, so a clone without the
+private checkout builds and tests exactly as before.
+
+Three properties make this safe, and each is enforced rather than documented:
+
+1. **The public bundle cannot reach it.** `heldout.ts` is imported only by
+   `src/agent/run.ts`, which Vite never builds. The public Quest registry glob is
+   `./wordpress/*/index.ts` — single-segment, so it cannot descend into a sibling
+   directory.
+2. **`AgentRunRecord.heldOut`** marks every run, so an open-book number can never
+   be mistaken for a held-out one. It defaults to `false`: a Quest is open-book
+   unless proven otherwise.
+3. **`heldout-isolation.test.ts`** walks the real import graph from `src/main.ts`
+   and fails if the loader is reachable, if a `**` glob appears on the public
+   graph, if the gitignore entry is removed, or if `policies.ts` mentions
+   `heldout`.
+
+That test was itself verified by injecting four leak shapes — a side-effect
+import, a `from` import, a dynamic `import()`, and a widened registry glob — and
+confirming each one turns it red. Its first implementation missed all four: the
+extractor required a `from` clause, so `import './x';` was invisible to it. A
+leak test that cannot fail is worse than no test, because it manufactures
+confidence. The extractor now enumerates import shapes explicitly and has a
+self-check asserting it finds each one.
+
+**Still open.** No held-out Quest is authored yet, so every number this harness
+currently produces is open-book. Creating the private repository is a deliberate
+human step: it decides what the benchmark measures, and it must not be created
+by automation on the account's behalf.
+
+Authoring one, once that repository exists:
+
+```bash
+git clone <private-repo> src/quests/heldout   # gitignored; never committed here
+npm test                                     # isolation guards must stay green
+npm run test:agent                           # covers held-out Quests when present
+```
+
+A held-out Quest should not reuse a public fault type. `src/quests/http.ts`
+exists for that reason: it supplies redirect and header evidence helpers, since
+`PlaygroundClient.request()` returns raw headers and does not follow redirects,
+and no public Quest exercises that shape.
 
 ## Status
 
-Verified: the loop boots, reads, writes, and validates programmatically in a
-headless browser, and the reference policies produce the seven distinct records
-above.
+Verified by execution, not by inspection:
 
-Not built: held-out Quests, scoring, multi-run aggregation, real LLM Agent
-integration, persistence. The harness accepts any `AgentPolicy`, so connecting a
-real Agent is a policy that calls a model instead of applying a fixed patch — no
-harness change required.
+- The loop boots, reads, writes, and validates programmatically in a headless
+  browser (`chrome-headless-shell`), and the seven reference policies produce the
+  seven distinct records above.
+- Both overbroad repairs record `targetPassed: true` with `outcome: fail` — the
+  distinction the harness exists to make.
+- The held-out seam degrades correctly when the private checkout is absent: the
+  agent smoke reports `heldOut: "none present"` and every run is labeled
+  `heldOut: false`.
+- The isolation test catches all four leak shapes it claims to catch, confirmed by
+  injecting each one.
+
+Not built: held-out Quests themselves, scoring, multi-run aggregation, real LLM
+Agent integration, persistence. The harness accepts any `AgentPolicy`, so
+connecting a real Agent is a policy that calls a model instead of applying a fixed
+patch — no harness change required.

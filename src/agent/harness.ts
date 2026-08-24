@@ -39,6 +39,8 @@ export class AgentSession {
     private readonly quest: QuestDefinition,
     private readonly agent: string,
     private readonly disclosure: DisclosureLevel = 'guided',
+    /** Whether this Quest is held out; open-book unless the caller says otherwise. */
+    private readonly heldOut: boolean = false,
   ) {
     this.brief = buildBrief(quest.metadata, disclosure);
     this.tools = {
@@ -92,6 +94,7 @@ export class AgentSession {
       questId: this.quest.metadata.id,
       agent: this.agent,
       disclosure: this.disclosure,
+      heldOut: this.heldOut,
       startedAt: this.startedAt,
       durationMs: Date.now() - this.startedAtMs,
       toolCalls: this.toolCalls,
@@ -116,8 +119,20 @@ export async function runAgentQuest(options: {
   agent: string;
   policy: AgentPolicy;
   disclosure?: DisclosureLevel;
+  /**
+   * Whether this Quest is held out. The caller supplies this rather than the
+   * harness deriving it, so `harness.ts` stays independent of the held-out
+   * loader and remains importable without it.
+   */
+  heldOut?: boolean;
 }): Promise<AgentRunRecord> {
-  const session = new AgentSession(options.client, options.quest, options.agent, options.disclosure);
+  const session = new AgentSession(
+    options.client,
+    options.quest,
+    options.agent,
+    options.disclosure,
+    options.heldOut,
+  );
   try {
     await options.policy(session);
     return session.finish();

@@ -1,2 +1,6 @@
 node_modules/
 dist/
+
+# Held-out benchmark Quests live in a separate private checkout and must never
+# be committed here or built into the public site. See docs/agent-benchmark.md.
+src/quests/heldout/

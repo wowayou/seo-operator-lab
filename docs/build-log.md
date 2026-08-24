@@ -135,9 +135,45 @@ returned zero matches in `dist`, because Vite bundles only the root `index.html`
 See [agent-benchmark.md](agent-benchmark.md) for the threat model and the held-out
 Quest requirement.
 
+## Held-out Quest seam - 2026-08-25
+
+The leakage finding above is structural, so the seam for a private Quest set was
+built: `src/quests/heldout/` is gitignored, and `src/agent/heldout.ts` loads it
+through two `import.meta.glob` patterns that match nothing when the directory is
+absent. A clone without the private checkout builds and tests unchanged.
+`AgentRunRecord.heldOut` now labels every run and defaults to `false`, so an
+open-book number cannot be mistaken for a held-out one.
+
+`heldout-isolation.test.ts` enforces the invariant instead of documenting it: it
+walks the real import graph from `src/main.ts` and fails if the loader is
+reachable, if a `**` glob appears on the public graph, if the gitignore entry is
+removed, or if `policies.ts` mentions `heldout`.
+
+That test was verified by injecting four leak shapes and confirming each turns it
+red: a side-effect import, a `from` import, a dynamic `import()`, and a widened
+registry glob. **Its first implementation caught none of them.** The extractor
+matched `import ... from '...'` with a lazy `[\s\S]*?`, so `import './x';` had no
+`from` clause and was invisible, and the lazy span could skip intervening imports
+by reaching a distant `from`. The rewritten extractor enumerates import shapes on
+single-line anchors and carries a self-check asserting it finds each one. A leak
+test that cannot fail is worse than no test, because it manufactures confidence.
+
+`npm run test:agent` was re-run after the change: exit code 0, all seven reference
+records unchanged, every record now carrying `heldOut: false`, and the report
+footer reading `none present (private checkout absent; all numbers above are
+open-book)`. The vitest suite is 35 tests across 3 files.
+
+`src/quests/http.ts` was added for the first held-out Quest: `request()` returns
+raw `headers` as `Record<string, string[]>` and does not follow redirects, so
+redirect-shaped faults are observable and no public Quest uses that shape.
+
+Creating the private repository was deliberately left to a human. It decides what
+the benchmark measures, and automation should not claim a repository on the
+account's behalf.
+
 ## Constraints and follow-up
 
 1. The hosted Playground still requires network access and can occasionally fail while downloading WASM assets; the UI exposes a retryable environment error.
 2. The npm client and hosted remote runtime should remain version-aligned; the project pins `@wp-playground/client` `3.1.50`.
 3. Before Phase C, standardize shared evidence helpers for redirects, HTTP, robots, structured data, and JSON-LD, then add the remaining three WordPress Quests through the scaffold.
-4. Every benchmark number the harness currently produces is open-book: both Quests are readable in the deployed bundle. A held-out Quest set in a separate private repository is required before per-Quest results mean anything about diagnosis rather than retrieval.
+4. Every benchmark number the harness currently produces is open-book: both Quests are readable in the deployed bundle. The held-out seam is built and guarded, but no held-out Quest is authored, so per-Quest results still measure retrieval as much as diagnosis. Creating the private repository is the remaining human step.

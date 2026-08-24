@@ -1,5 +1,6 @@
 import { getQuest } from '../quests/registry';
 import { runAgentQuest } from './harness';
+import { getHeldOutQuest, heldOutPolicies, heldOutQuestIds, isHeldOut } from './heldout';
 import { referencePolicies, type ReferencePolicyName } from './policies';
 import type { AgentRunRecord, DisclosureLevel } from './protocol';
 
@@ -15,13 +16,24 @@ import type { AgentRunRecord, DisclosureLevel } from './protocol';
 
 declare global {
   interface Window {
-    /** Awaited by the Playwright driver. */
+    /**
+     * Awaited by the Playwright driver.
+     *
+     * `policy` is a plain string rather than `ReferencePolicyName` because a
+     * held-out Quest brings its own reference policies from the private checkout,
+     * and their names are unknown to this repository at compile time.
+     */
     agentRun?: (options: {
       questId: string;
-      policy: ReferencePolicyName;
+      policy: string;
       disclosure?: DisclosureLevel;
     }) => Promise<AgentRunRecord>;
     agentRunReady?: boolean;
+    /**
+     * Lets the driver discover which held-out Quests are present without
+     * hardcoding ids that only exist in the private checkout.
+     */
+    agentHeldOutQuestIds?: string[];
   }
 }
 
@@ -59,9 +71,16 @@ async function bootFreshRuntime(blueprint: unknown) {
 }
 
 window.agentRun = async ({ questId, policy, disclosure = 'guided' }) => {
-  const quest = getQuest(questId);
+  /**
+   * Held-out Quests are resolved first. They live outside the public registry, so
+   * `getQuest()` cannot see them and would silently fall back to the first public
+   * Quest -- which would attribute a held-out run to an open-book fixture.
+   */
+  const heldOutQuest = getHeldOutQuest(questId);
+  const quest = heldOutQuest ?? getQuest(questId);
   if (quest.metadata.id !== questId) throw new Error(`Unknown Quest id: ${questId}`);
-  const selectedPolicy = referencePolicies[policy];
+
+  const selectedPolicy = referencePolicies[policy as ReferencePolicyName] ?? heldOutPolicies[policy];
   if (!selectedPolicy) throw new Error(`Unknown reference policy: ${policy}`);
 
   setStatus(`Booting ${quest.metadata.id}`, 'booting');
@@ -74,6 +93,7 @@ window.agentRun = async ({ questId, policy, disclosure = 'guided' }) => {
     agent: `reference:${policy}`,
     policy: selectedPolicy,
     disclosure,
+    heldOut: isHeldOut(questId),
   });
 
   outputElement!.textContent = JSON.stringify(record, null, 2);
@@ -81,5 +101,9 @@ window.agentRun = async ({ questId, policy, disclosure = 'guided' }) => {
   return record;
 };
 
+window.agentHeldOutQuestIds = [...heldOutQuestIds];
 window.agentRunReady = true;
-setStatus('Ready', 'done');
+setStatus(
+  heldOutQuestIds.size ? `Ready (${heldOutQuestIds.size} held-out Quest(s) loaded)` : 'Ready (open-book Quests only)',
+  'done',
+);

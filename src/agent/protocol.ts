@@ -146,6 +146,15 @@ export interface AgentRunRecord {
   /** Identifies the policy or model under test. */
   agent: string;
   disclosure: DisclosureLevel;
+  /**
+   * Whether the Quest came from the held-out set.
+   *
+   * `false` means the fixture and its Validator are readable in the deployed
+   * bundle, so the result measures retrieval as much as diagnosis and must be
+   * reported as open-book. This is a property of the Quest, not of the agent,
+   * and it is recorded per run because the two are not comparable.
+   */
+  heldOut: boolean;
   startedAt: string;
   durationMs: number;
   outcome: RunOutcome;
@@ -183,6 +192,8 @@ export function buildRunRecord(input: {
   questId: string;
   agent: string;
   disclosure: DisclosureLevel;
+  /** Defaults to `false`: a Quest is open-book unless it is known to be held out. */
+  heldOut?: boolean;
   startedAt: string;
   durationMs: number;
   toolCalls: ToolCallRecord[];
@@ -195,6 +206,7 @@ export function buildRunRecord(input: {
     questId: input.questId,
     agent: input.agent,
     disclosure: input.disclosure,
+    heldOut: input.heldOut ?? false,
     startedAt: input.startedAt,
     durationMs: input.durationMs,
     outcome,

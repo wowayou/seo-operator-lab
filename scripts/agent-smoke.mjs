@@ -115,6 +115,13 @@ try {
       record.questId === expectation.questId,
       `${expectation.policy}: record was attributed to ${record.questId}`,
     );
+    // Both current Quests are readable in the deployed bundle, so every record
+    // they produce must be labeled open-book rather than silently comparable to
+    // a held-out result.
+    check(
+      record.heldOut === false,
+      `${expectation.policy}: a public Quest must be recorded as open-book, got heldOut=${record.heldOut}`,
+    );
 
     if (expectation.outcome === 'error') {
       check(
@@ -180,13 +187,69 @@ try {
     `The harness must distinguish lab from production implementations: ${JSON.stringify(reviewLevels)}`,
   );
 
+  /**
+   * Held-out coverage, when the private checkout is present.
+   *
+   * The driver cannot name held-out reference policies -- they live in the private
+   * repository and this script must keep working without it. So each held-out
+   * Quest is exercised with `observeOnly`, which is generic: it fetches the target
+   * and asks for a verdict without touching the runtime. That is enough to assert
+   * the two things this repository is responsible for: the Quest boots through the
+   * public harness, and its record is labeled `heldOut: true` so it is never
+   * compared against an open-book number.
+   *
+   * A fresh fixture must FAIL, per the authoring contract in quest-authoring.md.
+   */
+  const heldOutIds = await page.evaluate(() => window.agentHeldOutQuestIds ?? []);
+  const heldOutRecords = [];
+
+  for (const questId of heldOutIds) {
+    const record = await page.evaluate(
+      (options) => window.agentRun(options),
+      { questId, policy: 'observeOnly', disclosure: 'minimal' },
+    );
+    check(
+      record.questId === questId,
+      `held-out ${questId}: record was attributed to ${record.questId}`,
+    );
+    check(
+      record.heldOut === true,
+      `held-out ${questId}: must be recorded as held out, got heldOut=${record.heldOut}`,
+    );
+    check(
+      record.outcome === 'fail',
+      `held-out ${questId}: a fresh fixture must produce a deterministic FAIL, got ${record.outcome}`,
+    );
+    heldOutRecords.push({
+      questId: record.questId,
+      heldOut: record.heldOut,
+      outcome: record.outcome,
+      // Check ids are printed for public Quests but withheld here: this output is
+      // pasted into issues and chat logs, and a held-out Quest's check ids name
+      // its fault.
+      failedCheckCount: record.validations.at(-1)?.failedCheckIds.length ?? 0,
+    });
+  }
+
   const unexpectedPageErrors = pageErrors.filter((message) => message !== 'Transition was skipped');
   check(
     unexpectedPageErrors.length === 0,
     `Unexpected page errors: ${JSON.stringify(unexpectedPageErrors)}`,
   );
 
-  console.log(JSON.stringify({ agentRuns: records, pageErrors }, null, 2));
+  console.log(
+    JSON.stringify(
+      {
+        agentRuns: records,
+        heldOut: heldOutIds.length
+          ? heldOutRecords
+          : 'none present (private checkout absent; all numbers above are open-book)',
+        pageErrors,
+      },
+      null,
+      2,
+    ),
+  );
 } finally {
   await browser.close();
 }
