@@ -50,4 +50,8 @@ The npm client does not expose a lifecycle destroy method. Reset and Quest switc
 4. Move the completed directory from `_drafts/` into `src/quests/wordpress/`.
 5. Add the Quest to the browser matrix in `scripts/browser-smoke.mjs` before calling it complete.
 
+## Agent benchmark boundary
+
+`src/agent/` adds a second consumer of the same Quest contract. It gives a non-human operator a programmatic tool surface over `PlaygroundClient` and records what happened, without changing Quest or Validator code. `validate()` stays outside that tool surface, so the verdict remains the one the human UI produces. See [agent-benchmark.md](agent-benchmark.md).
+
 Progress, scoring, mastery, persistence, and export remain later phases. This architecture intentionally does not let those concerns leak into the runtime contract yet.

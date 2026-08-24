@@ -55,3 +55,23 @@ Validators expose `targetPassed` separately from final `passed`. The target grou
 The Canonical Quest accepts any result satisfying target and regression checks. Its optional post-pass challenge resets the fixture and opens a site-owned override plugin, where `remove_action()` can remove the vendor hook without editing vendor code.
 
 **Consequence:** Learners first prove the bug/fix loop, then see upgrade-safe implementation quality as an explicit second objective. The Validator does not enforce a single source-code diff.
+
+## ADR-008: The Agent tool surface excludes the Validator
+
+**Status:** Accepted
+
+`AgentSession` exposes read, write, list, probe, fetch, and PHP execution, all confined to `/wordpress`. It does not expose `validate()` as a tool. An Agent may request a verdict, but the Validator reads the runtime itself through the same code path the human UI uses.
+
+An alternative was considered and rejected: a declarative `checks: [{type, selector, expected}]` JSON DSL, so that adding a Quest would not require code. The Canonical Validator refutes it. Its expected canonical is read at runtime from `home_url()` because every boot receives a new scope URL, and its homepage regression resolves `page_on_front` before requesting a permalink. Expressing that in JSON requires an expression language; the cost lands on every future Quest.
+
+**Consequence:** A benchmark PASS means exactly what a human PASS means, and cannot be argued with by the party under test. Reuse comes from shared evidence helpers such as `src/quests/html.ts`, not from configuration.
+
+## ADR-009: Published Quests are open-book by construction
+
+**Status:** Accepted, with a known gap
+
+Blueprints and validators are imported by the app, so Vite compiles them into `dist/assets/index-*.js`. The deployed bundle contains the fault-injection source and the Validator's check ids. Making the repository private does not change this; neither does obfuscation or serving Blueprints from a backend, because the fixture must reach the browser to boot.
+
+The Agent harness is kept out of the artifact instead: Vite bundles only the root `index.html`, so `agent-run.html`, `src/agent/**`, and the reference policies stay unbuilt. This is verified by grepping the built bundle for the harness identifiers.
+
+**Consequence:** Results for the two current Quests measure retrieval as much as diagnosis and must be labeled open-book. A trustworthy benchmark requires a held-out Quest set authored outside this repository. `AgentRunRecord` records `disclosure` but has no "unseen" field, because at present no Quest qualifies. See [agent-benchmark.md](agent-benchmark.md).

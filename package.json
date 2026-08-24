@@ -10,7 +10,8 @@
     "quest:new": "node scripts/create-quest.mjs",
     "validate:quests": "node scripts/validate-quests.mjs",
     "test": "vitest run",
-    "test:browser": "node scripts/browser-smoke.mjs"
+    "test:browser": "node scripts/browser-smoke.mjs",
+    "test:agent": "node scripts/agent-smoke.mjs"
   },
   "dependencies": {
     "@wp-playground/client": "3.1.50",

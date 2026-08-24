@@ -9,14 +9,14 @@ Progress, accounts, scoring, persistence, export, LLM features, and the remainin
 
 ## Live site
 
-The `main` branch is deployed to GitHub Pages:
+The `main` branch is deployed to GitHub Pages at https://seolab.eigentime.org/
+(the default https://wowayou.github.io/seo-operator-lab/ still resolves).
 
-https://wowayou.github.io/seo-operator-lab/
-
-The production build uses relative asset paths, so the same artifact can later
-move to a custom domain without changing the Vite base path. After choosing a
-domain, configure it under **Settings -> Pages -> Custom domain** and point the
-domain's DNS record to GitHub Pages.
+The production build uses relative asset paths, so the same artifact works from
+either origin without changing the Vite base path. The custom domain is stored in
+the repository's Pages settings; because this project publishes from a workflow,
+no `CNAME` file is committed. DNS is one `CNAME` record for `seolab` pointing at
+`wowayou.github.io`, unproxied so GitHub issues the certificate.
 
 ## Local folder
 
@@ -57,13 +57,36 @@ npm run build          # production build
 npm audit
 ```
 
-With the dev server running, the browser smoke drives both Quests, the WordPress Plugin File Editor, the production-grade Canonical path, Reset, Quest switching, and 390px layout:
+With the dev server running, the browser smoke drives both Quests, the WordPress
+Plugin File Editor, the production-grade Canonical path, Reset, Quest switching,
+the workspace shortcuts, and 390px layout. The agent smoke calibrates the
+benchmark harness against its deterministic reference policies:
 
 ```bash
-CHROME_PATH=/path/to/chromium npm run test:browser
+npm run dev &                      # both suites need the dev server
+CHROME_PATH=/path/to/chrome npm run test:browser
+CHROME_PATH=/path/to/chrome npm run test:agent
 ```
 
-See [docs/architecture.md](docs/architecture.md), [docs/quest-authoring.md](docs/quest-authoring.md), [docs/validator-authoring.md](docs/validator-authoring.md), and [docs/quest-scaling-analysis.md](docs/quest-scaling-analysis.md) for the maintenance model and research notes. [docs/build-log.md](docs/build-log.md) records the observed Playground evidence.
+`CHROME_PATH` may point at a full Chromium or at Playwright's
+`chrome-headless-shell`; both suites run headless.
+
+## Agent benchmark harness
+
+`src/agent/` exposes the same runtime to a non-human operator: a disclosure-gated
+brief, an instrumented tool surface over `PlaygroundClient`, and a run record. The
+Quest Validator stays the only judge and is deliberately not a tool.
+
+`agent-run.html` is the dev-only driver. Vite bundles only the root `index.html`,
+so the harness and its reference policies never reach the published site.
+
+Results from the two current Quests are **open-book**: the deployed bundle
+contains the fault Blueprints and the Validator's check ids, so any Agent with web
+access can read the answers. See
+[docs/agent-benchmark.md](docs/agent-benchmark.md) for the measurements, the
+disclosure levels, and the held-out Quest set that is still missing.
+
+See [docs/architecture.md](docs/architecture.md), [docs/quest-authoring.md](docs/quest-authoring.md), [docs/validator-authoring.md](docs/validator-authoring.md), [docs/agent-benchmark.md](docs/agent-benchmark.md), and [docs/quest-scaling-analysis.md](docs/quest-scaling-analysis.md) for the maintenance model and research notes. [docs/build-log.md](docs/build-log.md) records the observed Playground evidence.
 
 ## License
 

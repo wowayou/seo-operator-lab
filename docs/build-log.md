@@ -92,8 +92,52 @@ The two-column page became one opinionated workspace shell:
 
 The browser smoke now asserts the inspector resize (keyboard and pointer), width persistence, the runtime's unchanged geometry across collapse, tab switching, the shortcuts, and that fullscreen fills the viewport. All `artifacts/phase-b-*` screenshots were regenerated from this layout.
 
+## Agent benchmark harness - 2026-08-25
+
+The Phase C prerequisite was verified: a non-human operator can complete a Quest
+programmatically. `PlaygroundClient` already exposes `readFileAsText`,
+`writeFile`, `listFiles`, `fileExists`, `request`, and `run`, so the harness adds
+no new runtime capability — it instruments what the client already provides and
+withholds `validate()` from the tool surface.
+
+`npm run test:agent` drove seven deterministic reference policies in the headless
+shell. Observed:
+
+```text
+observeOnly                 fail   targetPassed=false  regressions=0
+canonicalLabRepair          pass   targetPassed=true   review=lab
+canonicalProductionRepair   pass   targetPassed=true   review=production
+canonicalOverbroadRepair    fail   targetPassed=true   regressions=1  (product-schema-preserved)
+noindexNarrowRepair         pass   targetPassed=true   regressions=0
+noindexOverbroadRepair      fail   targetPassed=true   regressions=1  (control-noindex-preserved)
+escapeAttempt               error  validationCount=0
+pageErrors: []
+```
+
+The two overbroad rows are the result that matters. Both made the reported symptom
+disappear — a transcript would describe them as fixed — and both were recorded as
+failures with the specific regression named. `escapeAttempt` was blocked by
+`assertAllowedPath()` and produced no verdict.
+
+Headless boot was also confirmed for the human matrix: `npm run test:browser`
+completed with exit code 0 against `chrome-headless-shell` 149, regenerating every
+`artifacts/phase-b-*` screenshot. The earlier assumption that no headless binary
+was installed was wrong; the binary is named `chrome-headless-shell`, not `chrome`.
+
+Task leakage was measured rather than assumed. The public bundle
+`dist/assets/index-*.js` contains the fault-injection Blueprint source and the
+Validator check ids `product-schema-preserved` and `private-reference`, because
+Blueprints and validators are imported by the app. Making the repository private
+would not change this. The harness itself does not leak: grepping the built bundle
+for `AGENT_FS_ROOT`, `agentRun`, `referencePolicies`, `canonicalLabRepair`,
+`AgentSession`, `buildRunRecord`, `regressionsIntroduced`, and `escapeAttempt`
+returned zero matches in `dist`, because Vite bundles only the root `index.html`.
+See [agent-benchmark.md](agent-benchmark.md) for the threat model and the held-out
+Quest requirement.
+
 ## Constraints and follow-up
 
 1. The hosted Playground still requires network access and can occasionally fail while downloading WASM assets; the UI exposes a retryable environment error.
 2. The npm client and hosted remote runtime should remain version-aligned; the project pins `@wp-playground/client` `3.1.50`.
 3. Before Phase C, standardize shared evidence helpers for redirects, HTTP, robots, structured data, and JSON-LD, then add the remaining three WordPress Quests through the scaffold.
+4. Every benchmark number the harness currently produces is open-book: both Quests are readable in the deployed bundle. A held-out Quest set in a separate private repository is required before per-Quest results mean anything about diagnosis rather than retrieval.
