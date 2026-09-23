@@ -1642,6 +1642,33 @@ body {
   width: 7px;
 }
 
+.project-support {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.project-support a {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 5px;
+  color: var(--teal-dark);
+  text-underline-offset: 3px;
+}
+
+.project-support a svg {
+  width: 13px;
+  height: 13px;
+}
+
 .mission-panel::-webkit-scrollbar-thumb {
   border: 2px solid #fff;
   border-radius: 8px;

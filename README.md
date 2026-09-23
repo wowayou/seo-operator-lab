@@ -103,6 +103,13 @@ disclosure levels, and the leakage threat model.
 
 See [docs/architecture.md](docs/architecture.md), [docs/quest-authoring.md](docs/quest-authoring.md), [docs/validator-authoring.md](docs/validator-authoring.md), [docs/agent-benchmark.md](docs/agent-benchmark.md), and [docs/quest-scaling-analysis.md](docs/quest-scaling-analysis.md) for the maintenance model and research notes. [docs/build-log.md](docs/build-log.md) records the observed Playground evidence.
 
+## Support
+
+If SEO Operator Lab has been useful to you,
+you can [support my work here](https://eigentime.org/support?from=seo-operator-lab).
+
+Support is entirely voluntary, provides no additional features or benefits, and does not affect free use of the project.
+
 ## License
 
 Released under the [MIT License](LICENSE).
