@@ -30,7 +30,9 @@ for (const directory of directories) {
 const sequence = String(nextSequence).padStart(3, '0');
 const id = `wp-${slug}-${sequence}`;
 const directory = path.join(draftsRoot, `${slug}-${sequence}`);
-await mkdir(directory, { recursive: true });
+await mkdir(draftsRoot, { recursive: true });
+// Fail on an existing draft rather than overwrite an author's work.
+await mkdir(directory);
 
 const metadata = {
   $schema: '../../../../schemas/quest.schema.json',
@@ -58,6 +60,18 @@ const metadata = {
     { level: 2, title: 'TODO: ownership', text: 'TODO: guide source ownership discovery.' },
     { level: 3, title: 'TODO: smallest change', text: 'TODO: reveal the narrowest useful repair.', action: 'open-editor' },
   ],
+  walkthrough: {
+    concept: 'TODO: explain the term and the scope of the lab repair.',
+    steps: [
+      'TODO: name the baseline validation button and evidence.',
+      'TODO: name the editor file and first-use warning.',
+      'TODO: explain the exact replacement and the Update File save button.',
+      'TODO: return to validation and explain reset/recovery.',
+    ],
+    before: 'TODO: exact authored fault snippet',
+    after: 'TODO: exact narrow lab repair',
+    caution: 'TODO: distinguish lab edits from production and document security limits.',
+  },
   searchQuery: 'TODO: search terms',
   success: { title: 'TODO: success title', message: 'TODO: success message' },
   postPassReview: {
@@ -89,12 +103,11 @@ const index = `import type { BlueprintV1Declaration } from '@wp-playground/clien
 import blueprintJson from './blueprint.json';
 import metadataJson from './quest.json';
 import type { QuestDefinition, QuestMetadata } from '../../types';
-import { validate } from './validator';
 
 const quest: QuestDefinition = {
   metadata: metadataJson as QuestMetadata,
   blueprint: blueprintJson as BlueprintV1Declaration,
-  validate,
+  validate: async (client) => (await import('./validator')).validate(client),
 };
 
 export default quest;

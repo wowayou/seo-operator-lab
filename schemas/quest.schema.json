@@ -18,6 +18,7 @@
     "target",
     "editor",
     "hints",
+    "walkthrough",
     "searchQuery",
     "success",
     "postPassReview",
@@ -80,6 +81,18 @@
       "minItems": 3,
       "maxItems": 3,
       "items": { "$ref": "#/definitions/hint" }
+    },
+    "walkthrough": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concept", "steps", "before", "after", "caution"],
+      "properties": {
+        "concept": { "type": "string", "minLength": 15 },
+        "steps": { "type": "array", "minItems": 4, "items": { "type": "string", "minLength": 10 } },
+        "before": { "type": "string", "minLength": 10 },
+        "after": { "type": "string", "minLength": 10 },
+        "caution": { "type": "string", "minLength": 15 }
+      }
     },
     "searchQuery": { "type": "string", "minLength": 8 },
     "success": {

@@ -5,51 +5,80 @@
   "sequence": 2,
   "platform": "wordpress",
   "title": "误加的 Noindex",
-  "description": "一页应被索引的公开内容输出了 noindex。修复目标内容，但保留私有参考页的 noindex。",
+  "description": "Noindex（不收录指令）让搜索引擎不要收录页面。本关公开内容被误标记；请仅修复它，同时保留不收录参考页的规则。注意：noindex 不会阻止别人访问页面，不能保护隐私。",
   "difficulty": 2,
   "skills": ["robots-meta", "wordpress-conditionals", "regression-testing"],
   "environment": { "wordpress": "6.7", "php": "8.3" },
   "objective": {
     "summary": "移除目标内容的 noindex，同时保留控制页的刻意 noindex。",
-    "completion": "目标内容可索引 · 私有参考页仍保持 noindex"
+    "completion": "目标无不收录指令 · 参考页仍 noindex · 其他公开页不受影响"
   },
   "target": { "url": "/field-notes/" },
   "editor": {
     "file": "seo-lab-robots-rules/seo-lab-robots-rules.php",
     "label": "打开规则编辑器",
-    "location": "后台路径：工具 → 插件文件编辑器"
+    "location": "顶部「② 编辑代码」直达 seo-lab-robots-rules.php；后台路径：工具 → 插件文件编辑器。保存按钮在代码框下方，名为 Update File。"
   },
   "hints": [
     {
       "level": 1,
       "title": "先区分目标与控制页",
-      "text": "运行验证并查看两组证据。目标内容应该可索引，但私有参考页本来就应该保持 noindex。"
+      "text": "点击顶部「① 运行验证」。/field-notes/ 是要修复的公开页，/private-reference/ 刻意不收录（但仍可公开访问），/public-reference/ 是不能被误伤的另一公开页。"
     },
     {
       "level": 2,
       "title": "定位 robots 的最终输出",
-      "text": "检查最终 HTML 中的 robots meta，并追踪谁通过 wp_head 写入它。不要把所有 noindex 一概删除。",
-      "href": "https://developer.wordpress.org/reference/hooks/wp_robots/",
-      "linkLabel": "查看 wp_robots 官方文档"
+      "text": "robots meta 位于页面头部；HTTP 的 X-Robots-Tag 响应头也能禁止收录。此题 Robots Rules 插件在 wp_head 输出 meta，收录意图通过 seo_lab_robots_noindex_pages 过滤器控制，不要删除所有规则。",
+      "href": "https://developer.wordpress.org/reference/functions/apply_filters/",
+      "linkLabel": "查看 apply_filters 官方文档"
     },
     {
       "level": 3,
       "title": "只修正错误条件",
-      "text": "打开 Robots Rules，首次点击 I understand。查找 data-seo-lab=\"noindex-rule\"；移除 field-notes 页的条件，保留 private-reference 的 noindex。",
+      "text": "点击顶部「② 编辑代码」，找到 $noindex_pages 这一行。把列表 ['field-notes', 'private-reference'] 改为 ['private-reference']，再点击编辑框下方 Update File。完整操作和可复制示例在下方「照着操作」。",
       "action": "open-editor"
     }
   ],
-  "searchQuery": "WordPress accidental noindex wp_head conditional tag",
+  "walkthrough": {
+    "concept": "noindex 是搜索引擎的不收录指令。本关把 field-notes 误放入不收录列表；不是 WordPress 的全站「建议搜索引擎不索引」开关坏了。只从列表移除这一页。",
+    "steps": [
+      "点击顶部绿色「① 运行验证」，查看 target-indexable 的实际指令中出现 noindex；对照另外两页的回归证据。",
+      "点击顶部「② 编辑代码」，系统直接打开 seo-lab-robots-rules.php。若出现 I understand（我了解风险），仅在当前临时环境确认。",
+      "在编辑框中找到 $noindex_pages = apply_filters(...) 这一行。将下面「修改前」整行替换为「修改后」；保留 private-reference，不要删除 echo 或整个插件。",
+      "向下滚动 WordPress 编辑区，点击代码框下方 Update File（更新文件）。等待 File edited successfully（文件修改成功）；若 PHP 报错，先修正标点再保存。",
+      "点击顶部「① 运行验证」：目标应无 noindex，不收录参考页应仍有 noindex，另一公开页应正常。若卡住可重新展开提示；「重置环境」会恢复故障并丢弃修改。"
+    ],
+    "before": "$noindex_pages = apply_filters('seo_lab_robots_noindex_pages', ['field-notes', 'private-reference']);",
+    "after": "$noindex_pages = apply_filters('seo_lab_robots_noindex_pages', ['private-reference']);",
+    "caution": "这只是便于理解的实验性编辑，升级可能覆盖；通过后可练习下方的站点自有生产修复路径。noindex 不是权限控制，私密页面需要登录和服务端访问限制；本关通过也不保证搜索引擎马上收录。"
+  },
+  "searchQuery": "WordPress accidental noindex robots meta X-Robots-Tag apply_filters",
   "success": {
     "title": "索引规则与回归均已验证",
-    "message": "目标内容可索引，私有参考页仍保持 noindex。"
+    "message": "目标与另一公开页符合本关索引规则，不收录参考页仍保持 noindex。"
   },
   "postPassReview": {
     "title": "实现复盘",
     "notes": [
       "robots 规则必须按页面意图区分，不能把 noindex 本身当成一律错误。",
-      "真实项目应优先使用站点配置或稳定 filter，并为应保持 noindex 的页面保留回归测试。"
-    ]
+      "真实项目应优先使用插件提供的配置或稳定 filter（过滤器），并为应保持 noindex 和正常公开的页面保留回归测试。",
+      "noindex 不提供鉴权或保密；真实敏感页面应加访问控制。本关只检查 HTML 与响应头，不模拟搜索引擎实际收录、robots.txt 或缓存刷新。",
+      "站点自有复盘只验证本关供应方文件未改、覆盖插件已启用且规则生效。上线前仍需预发布验证、备份和可停用覆盖插件的回滚路径。"
+    ],
+    "advancedChallenge": {
+      "title": "生产级改进",
+      "description": "重置后保留 Robots Rules 原文件，在站点自有的 Site Overrides 中通过过滤器移除 field-notes。自动打开文件后，顶部「任务与提示」可重新查看步骤。",
+      "why": "只从现有列表移除误加条目，而不是重写整个列表；这样供应方升级和未来新增的不收录页面仍可保留。",
+      "steps": [
+        "点击「开始：重置并自动打开编辑器」，确认丢弃当前实验修改。",
+        "等待打开 seo-lab-site-overrides.php；首次出现 I understand 时，仅在当前实验环境确认。",
+        "把下面代码添加到现有 init 回调的占位注释处，点击编辑框下方 Update File；不要修改 Robots Rules。",
+        "点击顶部「① 运行验证」，检查目标、两个对照页和实现复盘；真实站点上线前还要检查响应头、缓存和访问控制。"
+      ],
+      "instruction": "add_filter('seo_lab_robots_noindex_pages', function (array $pages): array {\n    return array_values(array_diff($pages, ['field-notes']));\n});",
+      "editorFile": "seo-lab-site-overrides/seo-lab-site-overrides.php",
+      "buttonLabel": "开始：重置并自动打开编辑器"
+    }
   },
   "review": { "intervalsDays": [2, 7, 21] },
   "scoring": { "base": 100, "hintPenalty": [0, 5, 12, 25], "solutionPenalty": 45 }

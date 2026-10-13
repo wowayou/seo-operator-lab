@@ -1,5 +1,7 @@
-import { readFile } from 'node:fs/promises';
+import { glob, mkdtemp, mkdir, readFile, realpath, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
+import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -22,17 +24,13 @@ const HELD_OUT_LOADER = path.join(projectRoot, 'src', 'agent', 'heldout.ts');
 /** Resolves a relative specifier the way the bundler would, trying real extensions. */
 async function resolveModule(fromFile: string, specifier: string): Promise<string | undefined> {
   const base = path.resolve(path.dirname(fromFile), specifier);
-  const candidates = [
-    base,
-    `${base}.ts`,
-    `${base}.js`,
-    path.join(base, 'index.ts'),
-    path.join(base, 'index.js'),
-  ];
+  // Match Vite 6's default extension order, including lazy JSX/MJS modules.
+  const extensions = ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json'];
+  const candidates = [base, ...extensions.map((extension) => `${base}${extension}`), ...extensions.map((extension) => path.join(base, `index${extension}`))];
   for (const candidate of candidates) {
     try {
-      const stat = await readFile(candidate, 'utf8').then(() => candidate);
-      if (stat.endsWith('.ts') || stat.endsWith('.js')) return stat;
+      await readFile(candidate, 'utf8');
+      if (/\.(?:[cm]?[jt]sx?|json)$/.test(candidate)) return await realpath(candidate);
     } catch {
       // Try the next candidate shape.
     }
@@ -40,34 +38,40 @@ async function resolveModule(fromFile: string, specifier: string): Promise<strin
   return undefined;
 }
 
-/**
- * Extracts every module specifier from one source file.
- *
- * Each pattern is anchored on the specifier itself and never spans lines. An
- * earlier version matched `import ... from '...'` with a lazy `[\s\S]*?`, which
- * silently missed bare side-effect imports (`import './x';` has no `from`) and
- * could skip intervening imports by matching a distant `from`. A leak-detection
- * test that misses an import shape is worse than no test, so the shapes are
- * enumerated explicitly and covered by the self-check below.
- */
-function extractSpecifiers(source: string): string[] {
-  return [
-    // `import x from 'y'`, `import type {a} from 'y'`, `export {a} from 'y'`, `export * from 'y'`
-    ...source.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g),
-    // `import 'y'` -- side-effect only, no bindings
-    ...source.matchAll(/\bimport\s+['"]([^'"]+)['"]/g),
-    // `import('y')`
-    ...source.matchAll(/\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g),
-    // `require('y')`
-    ...source.matchAll(/\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g),
-  ].map((match) => match[1]);
+/** Use the TypeScript syntax tree: comments and quoted examples are not imports. */
+function visitSource(source: string, visit: (node: ts.Node) => void, fileName = 'module.ts'): void {
+  const file = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true);
+  const walk = (node: ts.Node) => { visit(node); ts.forEachChild(node, walk); };
+  walk(file);
 }
 
-/** Extracts `import.meta.glob('pattern')` patterns, which pull in files by shape. */
-function extractGlobPatterns(source: string): string[] {
-  return [...source.matchAll(/import\.meta\.glob\s*(?:<[^>]*>)?\s*\(\s*['"]([^'"]+)['"]/g)].map(
-    (match) => match[1],
-  );
+function extractSpecifiers(source: string, fileName?: string): string[] {
+  const result: string[] = [];
+  visitSource(source, (node) => {
+    if ((ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) && node.moduleSpecifier && ts.isStringLiteralLike(node.moduleSpecifier)) {
+      result.push(node.moduleSpecifier.text);
+    }
+    if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || (ts.isIdentifier(node.expression) && node.expression.text === 'require'))) {
+      const argument = node.arguments[0];
+      if (!argument || !ts.isStringLiteralLike(argument)) throw new Error('Cannot audit a non-literal module import');
+      result.push(argument.text);
+    }
+  }, fileName);
+  return result;
+}
+
+function extractGlobPatterns(source: string, fileName?: string): string[] {
+  const result: string[] = [];
+  visitSource(source, (node) => {
+    if (!ts.isCallExpression(node) || node.expression.getText() !== 'import.meta.glob') return;
+    const first = node.arguments[0];
+    const patterns = first && ts.isArrayLiteralExpression(first) ? first.elements : [first];
+    for (const pattern of patterns) {
+      if (!pattern || !ts.isStringLiteralLike(pattern)) throw new Error('Cannot audit a non-literal glob');
+      result.push(pattern.text);
+    }
+  }, fileName);
+  return result;
 }
 
 interface ModuleGraph {
@@ -100,9 +104,17 @@ async function collectModuleGraph(entry: string): Promise<ModuleGraph> {
       continue;
     }
 
-    for (const pattern of extractGlobPatterns(source)) globs.push({ file: current, pattern });
+    for (const pattern of extractGlobPatterns(source, current)) {
+      globs.push({ file: current, pattern });
+      // A glob is an import edge, not just a string to inspect. Walk the actual
+      // Quest modules and their lazy validators, otherwise leaks there are missed.
+      for await (const match of glob(pattern, { cwd: path.dirname(current) })) {
+        const resolved = await resolveModule(current, `./${match}`);
+        if (resolved) queue.push(resolved);
+      }
+    }
 
-    for (const specifier of extractSpecifiers(source)) {
+    for (const specifier of extractSpecifiers(source, current)) {
       if (!specifier.startsWith('.')) continue;
       const resolved = await resolveModule(current, specifier);
       if (resolved) queue.push(resolved);
@@ -141,6 +153,31 @@ describe('import extractor', () => {
     );
   });
 
+  it('ignores comments and quoted import examples', () => {
+    expect(extractSpecifiers("// import './secret';\nconst sample = \"import './example';\";")).toEqual([]);
+  });
+
+  it('audits literal glob arrays and rejects opaque expressions', () => {
+    expect(extractGlobPatterns("import.meta.glob(['./x/*.ts', './y/*.ts'])")).toEqual(['./x/*.ts', './y/*.ts']);
+    expect(() => extractGlobPatterns('import.meta.glob(pattern)')).toThrow('non-literal');
+    expect(() => extractSpecifiers('import(destination)')).toThrow('non-literal');
+  });
+
+  it.each(['.ts', '.tsx', '.mjs'])('follows a deliberately injected leak behind a registry glob and lazy %s validator', async (extension) => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'seo-lab-graph-'));
+    try {
+      await mkdir(path.join(directory, 'quests', 'one'), { recursive: true });
+      await writeFile(path.join(directory, 'main.ts'), "import.meta.glob('./quests/*/index.ts');");
+      await writeFile(path.join(directory, 'quests', 'one', 'index.ts'), "export const validate = () => import('./validator');");
+      await writeFile(path.join(directory, 'quests', 'one', `validator${extension}`), extension === '.tsx'
+        ? "const view = <button onClick={() => import('../../secret.json')}/>;"
+        : "import '../../secret.json';");
+      await writeFile(path.join(directory, 'secret.json'), '{}');
+      const graph = await collectModuleGraph(path.join(directory, 'main.ts'));
+      expect(graph.files).toContain(path.join(directory, 'secret.json'));
+    } finally { await rm(directory, { recursive: true, force: true }); }
+  });
+
   it('finds glob patterns with and without a type parameter', () => {
     expect(extractGlobPatterns("import.meta.glob('./x/*.ts')")).toEqual(['./x/*.ts']);
     expect(extractGlobPatterns("import.meta.glob<{ default: T }>('./y/*/index.ts', { eager: true })")).toEqual([
@@ -153,6 +190,8 @@ describe('held-out Quest isolation', () => {
   it('is not reachable from the public application entry', async () => {
     const graph = await collectModuleGraph(path.join(projectRoot, 'src', 'main.ts'));
     expect([...graph.files]).not.toContain(HELD_OUT_LOADER);
+    expect([...graph.files].some((file) => file.startsWith(path.join(projectRoot, 'src', 'quests', 'heldout') + path.sep))).toBe(false);
+    expect([...graph.files]).toContain(path.join(projectRoot, 'src', 'quests', 'wordpress', 'accidental-noindex-002', 'validator.ts'));
   });
 
   it('is reachable from the agent harness entry, which is not built', async () => {

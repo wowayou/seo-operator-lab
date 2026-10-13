@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://seolab.eigentime.org/sitemap.xml

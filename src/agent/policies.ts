@@ -80,9 +80,24 @@ export const noindexNarrowRepair: AgentPolicy = async (session: AgentSession) =>
     ROBOTS_RULES,
     replaceOnce(
       source,
-      "if (is_page('field-notes') || is_page('private-reference')) {",
-      "if (is_page('private-reference')) {",
-      'the combined noindex condition',
+      "['field-notes', 'private-reference']",
+      "['private-reference']",
+      'the combined noindex list',
+    ),
+  );
+  await session.validate();
+};
+
+/** Keep the vendor source and future exclusions intact through its stable filter. */
+export const noindexProductionRepair: AgentPolicy = async (session: AgentSession) => {
+  const source = await session.tools.readFile(SITE_OVERRIDES);
+  await session.tools.writeFile(
+    SITE_OVERRIDES,
+    replaceOnce(
+      source,
+      '    // Add site-owned hook overrides here.',
+      "    add_filter('seo_lab_robots_noindex_pages', function (array $pages): array {\n        return array_values(array_diff($pages, ['field-notes']));\n    });",
+      'the site override placeholder',
     ),
   );
   await session.validate();
@@ -90,7 +105,7 @@ export const noindexNarrowRepair: AgentPolicy = async (session: AgentSession) =>
 
 /**
  * Noindex Quest, overbroad repair: remove every noindex rule. The target
- * becomes indexable and the intentionally private page leaks.
+ * becomes indexable but the intentionally excluded control page regresses.
  */
 export const noindexOverbroadRepair: AgentPolicy = async (session: AgentSession) => {
   const source = await session.tools.readFile(ROBOTS_RULES);
@@ -123,6 +138,7 @@ export const referencePolicies = {
   canonicalProductionRepair,
   canonicalOverbroadRepair,
   noindexNarrowRepair,
+  noindexProductionRepair,
   noindexOverbroadRepair,
   escapeAttempt,
 } satisfies Record<string, AgentPolicy>;

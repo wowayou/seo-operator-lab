@@ -10,12 +10,14 @@
     "quest:new": "node scripts/create-quest.mjs",
     "validate:quests": "node scripts/validate-quests.mjs",
     "test": "vitest run",
+    "test:ui": "node scripts/browser-shell.mjs",
     "test:browser": "node scripts/browser-smoke.mjs",
     "test:agent": "node scripts/agent-smoke.mjs"
   },
   "dependencies": {
     "@wp-playground/client": "3.1.50",
-    "lucide": "^1.32.0"
+    "lucide": "^1.32.0",
+    "parse5": "8.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

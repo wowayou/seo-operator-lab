@@ -2,10 +2,12 @@
 
 This repository contains the WordPress-first Phase B implementation from the PRD. It keeps the proven Phase A Playground loop and adds two data-driven Quests:
 
-- `wp-canonical-duplicate-001` - Duplicate Canonical with Product Schema and homepage regressions;
-- `wp-accidental-noindex-002` - an indexable target with an intentionally noindex control page.
+- `wp-canonical-duplicate-001` — duplicate canonical with valid Product JSON-LD and homepage regressions;
+- `wp-accidental-noindex-002` — an indexable target, a deliberately excluded (but publicly accessible) reference page, and another public page.
 
-Progress, accounts, scoring, persistence, export, LLM features, and the remaining three Quests are intentionally deferred.
+Both Quests include progressive hints, an opt-in exact-edit walkthrough, and a site-owned production repair exercise. **Noindex is not access control.** Do not put private information in the fixture.
+
+Progress, accounts, scoring, persistence, export and LLM features are intentionally deferred. [The next Quest plan](docs/quest-scaling-analysis.md#next-quest-003--redirect-chain-planned-not-shipped) is a bounded redirect-chain exercise, not another published Quest yet.
 
 ## Live site
 
@@ -26,19 +28,29 @@ The project is located at:
 
 ## Run locally
 
+Use Node.js 22.17+ (CI uses Node 22). The development server is for local use, not a production WordPress host.
+
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
 Open the printed local URL. The first Playground boot can take 30-90 seconds while WordPress is downloaded and initialized.
 
-1. Choose a Quest from **当前 Quest**.
-2. Run the validator and inspect target versus regression evidence.
-3. Reveal progressive hints only as needed, then edit the embedded WordPress runtime.
-4. A target-only repair is shown as a regression failure when it removes required behavior.
-5. After a complete PASS, read **实现复盘**. The Canonical Quest offers a reset-and-open path for the production-grade Site Overrides solution.
-6. Quest switching and Reset both confirm before discarding the current runtime.
+1. Choose **当前关卡** in the top bar. First-time visitors can choose **带我上手**; **操作指引** always replays the five-step walkthrough.
+2. Click the persistent **① 运行验证** button. The initial FAIL is intentional; failed evidence opens automatically.
+3. Use **③ 任务与提示 → 提示**. Progressive hints do not reveal everything at once. **照着操作** explicitly discloses the lab answer, with exact before/after code and the WordPress **Update File** save action. It never writes the answer for you.
+4. **② 编辑代码** opens the correct file. The desktop inspector is docked, not laid over WordPress, and automatically collapses for editing. Pin it when you want to read and edit side by side. Compact screens use a dismissible sheet; fullscreen also collapses it. Core buttons stay visible in either mode.
+5. Save in WordPress, then validate again. Symptom-only repairs fail when a regression is introduced. After PASS, read **实现复盘**; both Quests offer a confirmed reset into the Site Overrides exercise. In that exercise, the editor button continues opening Site Overrides.
+6. Switching Quests, Reset and starting the production exercise confirm before discarding edits. Refreshing also loses this temporary runtime; an edit session requests the browser's unload warning. Startup is bounded to 180 seconds, operations to 30 seconds. No automatic retries occur; a timed-out operation keeps the editor visible for copying work before a confirmed reset.
+
+`F` toggles fullscreen and `[` toggles the inspector in the **outer workspace**. These shortcuts do not intercept inputs, the nested WordPress editor, or confirmation dialogs. Browser fullscreen has a viewport-sized fallback. Panel width, pin preference and guide dismissal are optional local preferences, not learning-progress persistence.
+
+### Safety and production boundaries
+
+The outer page restricts scripts/frames with a Content Security Policy; the cross-origin iframe is sandboxed without top navigation or popups. WordPress/PHP remain pinned teaching fixtures. Do not use real credentials, mount secrets, or deploy their editable demo plugins to a real site. A `production` review only establishes the known fixture's vendor file is unchanged, the site override is active/changed, and its rule is effective; it does not certify caching, authorization, real search indexation or all production code.
+
+The shell itself is indexable, with a canonical homepage, description, `robots.txt` and single-URL sitemap. The deliberate noindex fault exists only inside the lab. GitHub Pages cannot set arbitrary response security headers from this repository; the meta policy cannot provide `frame-ancestors`. The hosted Playground and its network availability remain external dependencies.
 
 ## Authoring a Quest
 
@@ -52,24 +64,23 @@ The scaffold is created under `src/quests/wordpress/_drafts/` and is not loaded 
 
 ```bash
 npm run check          # TypeScript + Quest JSON + Blueprint validation
-npm test               # pure Validator tests
+npm test               # validators, runtime lifecycle, disclosure and isolation guards
 npm run build          # production build
 npm audit
 ```
 
-With the dev server running, the browser smoke drives both Quests, the WordPress
-Plugin File Editor, the production-grade Canonical path, Reset, Quest switching,
-the workspace shortcuts, and 390px layout. The agent smoke calibrates the
-benchmark harness against its deterministic reference policies:
+With the dev server running, the UI smoke tests layout, keyboard navigation, the guide, denied storage and recovery **without downloading WordPress**. The real browser smoke drives both documented lab repairs, both overbroad regressions, both production paths, Reset, switching and the 390px editor. The agent smoke calibrates eight deterministic reference policies:
 
 ```bash
-npm run dev &                      # both suites need the dev server
+npm run dev &
+CHROME_PATH=/path/to/chrome npm run test:ui
 CHROME_PATH=/path/to/chrome npm run test:browser
 CHROME_PATH=/path/to/chrome npm run test:agent
 ```
 
-`CHROME_PATH` may point at a full Chromium or at Playwright's
-`chrome-headless-shell`; both suites run headless.
+`CHROME_PATH` may point at Chromium or Playwright's `chrome-headless-shell`. Without it, the installed Playwright Chromium path is used. `LAB_URL` overrides the default `http://127.0.0.1:5173`. The real browser matrix also works against a served `dist/` artifact. Current screenshots/reports go to gitignored `artifacts/current/` (`ARTIFACT_DIR` overrides it); historical screenshots are not overwritten.
+
+The existing Pages workflow runs unit/isolation tests before building, pins its top-level actions, limits build/deploy duration and grants publish permissions only to the deploy job. It adds no schedules, matrices, browser downloads or automatic retry loops. This public repository uses standard GitHub-hosted runners (free compute under [GitHub's documented billing model](https://docs.github.com/en/billing/concepts/product-billing/github-actions)); the small Pages artifact keeps the upload action's one-day retention. Workflow execution itself is verified only when a publish is authorized.
 
 ## Agent benchmark harness
 

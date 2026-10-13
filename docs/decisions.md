@@ -50,17 +50,17 @@ Validators expose `targetPassed` separately from final `passed`. The target grou
 
 ## ADR-007: Production solutions are reviewable alternatives
 
-**Status:** Accepted for Canonical Quest
+**Status:** Accepted for both current Quests (expanded 2026-10)
 
-The Canonical Quest accepts any result satisfying target and regression checks. Its optional post-pass challenge resets the fixture and opens a site-owned override plugin, where `remove_action()` can remove the vendor hook without editing vendor code.
+Both Quests accept any result satisfying target and regression checks. Their optional post-pass challenges reset the fixture and open a site-owned override plugin: Canonical removes the vendor's duplicate hook; Noindex filters out only the erroneous page, keeping other and future exclusions.
 
-**Consequence:** Learners first prove the bug/fix loop, then see upgrade-safe implementation quality as an explicit second objective. The Validator does not enforce a single source-code diff.
+**Consequence:** Learners first prove the bug/fix loop, then examine upgrade safety as an explicit second objective. The review requires vendor baseline equality, an active/changed override and runtime-effective behavior, not a matching source string. It is labeled as the observed site-owned path, not universal production certification; the PASS gate remains behavior-based.
 
 ## ADR-008: The Agent tool surface excludes the Validator
 
 **Status:** Accepted
 
-`AgentSession` exposes read, write, list, probe, fetch, and PHP execution, all confined to `/wordpress`. It does not expose `validate()` as a tool. An Agent may request a verdict, but the Validator reads the runtime itself through the same code path the human UI uses.
+`AgentSession` exposes read, write, list, probe, fetch, and PHP execution. Direct filesystem arguments are lexically checked under `/wordpress`; **correction (2026-10): this does not confine arbitrary `runPhp` code or symlink resolution**, so it is not a security sandbox. No secrets or host mounts belong in this runtime. It does not expose `validate()` as a tool. An Agent may request a verdict, but the Validator reads the runtime itself through the same code path the human UI uses.
 
 An alternative was considered and rejected: a declarative `checks: [{type, selector, expected}]` JSON DSL, so that adding a Quest would not require code. The Canonical Validator refutes it. Its expected canonical is read at runtime from `home_url()` because every boot receives a new scope URL, and its homepage regression resolves `page_on_front` before requesting a permalink. Expressing that in JSON requires an expression language; the cost lands on every future Quest.
 
@@ -94,8 +94,32 @@ Reference repairs for held-out Quests live beside their Quest in the private che
 
 ## ADR-011: A leak-detection test must be proven able to fail
 
-**Status:** Accepted
+**Status:** Principle accepted; extractor implementation superseded by ADR-014
 
 The first `heldout-isolation.test.ts` passed against four deliberately injected leaks: a side-effect import, a `from` import, a dynamic `import()`, and a widened registry glob. Its extractor required a `from` clause, so `import './x';` was invisible, and a lazy `[\s\S]*?` could skip intervening imports by matching a distant `from`. The suite was green and guarded nothing.
 
-**Consequence:** The extractor enumerates import shapes explicitly and carries a self-check asserting it finds each one. Any test whose only job is to detect a dangerous condition must be validated by producing that condition and observing the failure. A guard that cannot fail is worse than no guard, because it manufactures confidence.
+**Consequence:** The original repair enumerated import shapes explicitly and carried a self-check asserting it found each one. Any test whose only job is to detect a dangerous condition must be validated by producing that condition and observing the failure. A guard that cannot fail is worse than no guard, because it manufactures confidence.
+
+## ADR-012: Docked inspection with explicit, persistent commands
+
+**Status:** Accepted, supersedes the overlay layout described in the 2026-08 build log
+
+The overlay inspector hid WordPress UI and contained the only validation/edit controls. Now commands remain in a top bar, the desktop inspector consumes its own grid column, and editing collapses it unless pinned. Compact screens use a deliberately opened sheet; fullscreen starts collapsed. An opt-in inline guide highlights actual buttons and can always be replayed.
+
+**Consequence:** Collapsing really releases runtime width (the old unchanged-geometry assertion is intentionally replaced by a non-overlap assertion). There is no hover timer or cursor prediction. The learner can override automatic behavior by pinning on desktop, and hidden panels/canvas regions are inert where appropriate.
+
+## ADR-013: HTML correctness is worth a lazy parser dependency
+
+**Status:** Accepted
+
+Regex inspection confused comments, script strings and `data-*` attributes with real SEO declarations and did not decode all HTML entities. The app now uses parse5 without executing HTML or fetching its resources. Validators and their parser are loaded on first validation rather than initial shell render; the pinned Playground client remains a separate lazy module.
+
+**Consequence:** The correctness cost is an additional lazy parser/evidence chunk. CSS consolidation reduces layout/stylesheet weight, but richer guides increase the entry JavaScript slightly; do not claim cold WordPress boot is faster without measurement. Input is capped at 2,000,000 characters per response.
+
+## ADR-014: Follow glob edges in the leakage guard
+
+**Status:** Accepted
+
+When validators became lazy imports, review found the old guard only recorded the registry glob's text and never visited the modules it matched. A leak inside a Quest would therefore be invisible. The guard now parses TypeScript syntax, expands literal glob patterns/arrays and follows the actual Quest, lazy validator and JSON edges. Non-literal imports/globs fail inspection rather than being silently ignored.
+
+**Consequence:** A temporary injected glob-to-validator-to-JSON leak proves reachability, and the public test asserts the Noindex validator is actually visited. This replaces the old regex extractor described in ADR-011 while preserving its central rule: a guard must be proven capable of detecting the condition it claims to prevent.

@@ -76,6 +76,7 @@ export const AGENT_FS_ROOT = '/wordpress';
  */
 export function normalizeVfsPath(input: string): string {
   if (!input.startsWith('/')) throw new Error(`Path must be absolute: ${input}`);
+  if (/[\u0000-\u001f\u007f\\\\]/.test(input)) throw new Error('Path contains control characters or backslashes');
   const resolved: string[] = [];
   for (const segment of input.split('/')) {
     if (segment === '' || segment === '.') continue;
@@ -90,12 +91,11 @@ export function normalizeVfsPath(input: string): string {
 }
 
 /**
- * Confines the agent to the WordPress installation.
+ * Constrains direct filesystem tool arguments to the WordPress tree.
  *
- * This keeps runs comparable: an agent cannot reach PHP internals or the
- * harness itself, so two runs of the same Quest see the same world. It is not a
- * defense against Quest leakage -- the lab's own source is not in this
- * filesystem at all. See docs/agent-benchmark.md for that threat model.
+ * This is a lexical guard, not a security sandbox. Symlinks and arbitrary
+ * `runPhp` code can access other paths inside the disposable PHP-WASM runtime.
+ * Never mount secrets or host directories into a benchmark environment.
  */
 export function assertAllowedPath(input: string): string {
   const normalized = normalizeVfsPath(input);

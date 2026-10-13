@@ -7,20 +7,23 @@
  * knowledge; they only normalize evidence collection.
  */
 
-/** Reads one header case-insensitively, since header casing is not guaranteed. */
-export function readHeader(headers: Record<string, string[]>, name: string): string | undefined {
+/** Read all values, including differently cased duplicate header names. */
+export function readHeaders(headers: Record<string, string[]>, name: string): string[] {
   const wanted = name.toLowerCase();
-  for (const [key, values] of Object.entries(headers)) {
-    if (key.toLowerCase() === wanted) return values[0];
-  }
-  return undefined;
+  return Object.entries(headers).filter(([key]) => key.toLowerCase() === wanted).flatMap(([, values]) => values);
+}
+
+/** Reads the first value case-insensitively. */
+export function readHeader(headers: Record<string, string[]>, name: string): string | undefined {
+  return readHeaders(headers, name)[0];
 }
 
 export function isRedirect(status: number): boolean {
-  return status >= 300 && status < 400;
+  // 304 is a cache response, not a navigational redirect.
+  return [301, 302, 303, 307, 308].includes(status);
 }
 
-/** Compares only the path, so a runtime-specific scope prefix does not matter. */
+/** Extracts the URL path. Runtime scope prefixes remain; compare against a scoped expectation. */
 export function pathOf(url: string | undefined): string | undefined {
   if (!url) return undefined;
   try {

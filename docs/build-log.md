@@ -171,9 +171,65 @@ Creating the private repository was deliberately left to a human. It decides wha
 the benchmark measures, and automation should not claim a repository on the
 account's behalf.
 
+## Workspace hardening plan — 2026-10-13
+
+Baseline: local `main`, `origin/main`, Pages deployment `35812406683`, and the live HTML all match `313e8e3`. The live HTML SHA-256 also matches a fresh local build. Baseline checks: 35 unit tests, Quest validation, TypeScript and production build pass. `npm audit` reports two high-severity development dependency findings (`fast-uri`, `source-map-js`).
+
+Acceptance slices (completed locally; commit/publication still require authorization):
+
+1. **Unobstructed learning workspace:** persistent, labeled validate/editor/help controls; a docked inspector that never covers WordPress; automatic collapse while editing/on narrow screens and in fullscreen; deliberate reopen/pin controls; keyboard-accessible tabs and a replayable beginner walkthrough. Every current Quest must explain the exact edit and WordPress save action without auto-applying an answer.
+2. **Trustworthy runtime and Quests:** bounded boot/validation/navigation, no stale results after reset, visible recovery and no unhandled startup rejection; restricted embedded runtime; patched vulnerable dependencies. Both Quests need baseline FAIL, narrow lab PASS, regression FAIL, reset FAIL and a site-owned production-path review based on runtime evidence rather than source-text matching. Cover malformed HTML, conflicting robots/header directives, broken structured data and upgrade-safety boundaries.
+3. **Verification and next Quest:** run static/unit/build/audit checks, human browser matrix at desktop and mobile, and reference-agent calibration. Record artifact sizes and limitations. Plan (do not prematurely publish) the next redirect Quest with observable acceptance criteria and rollback boundaries in the existing scaling guide.
+
+Keep WordPress/PHP and hosted-client versions pinned during this work. Do not add accounts, scoring, automatic repairs, scheduled CI, or external services. Publishing and any destructive/external action require explicit authorization.
+
+### Implemented and verified
+
+- Commands now remain above the workspace. Desktop inspection is docked (never over the editor), automatically collapses on editing, can be pinned, and starts hidden in fullscreen/compact layouts. The inline opt-in guide highlights actual controls; exact-edit disclosures name the real editor file, first-use warning and **Update File** save button. Success feedback stays in the inspector rather than covering WordPress.
+- Noindex has a third, publicly indexable control plus a stable list filter and a Site Overrides exercise. Its generic exclusion control cannot be satisfied with only a crawler-specific rule. Learner copy explicitly says noindex is not access control and PASS is not a search-indexation guarantee.
+- Both validators use inert HTML5 parsing and stronger regression evidence. Product JSON-LD must be meaningful, not merely tagged. A raw `/` request was observed returning 301 in the scoped Playground; the collector uses WordPress's resolved front-page permalink instead of weakening the HTTP 200/homepage canonical requirement.
+- Runtime generations reject stale boots/results, serialize operations, bound boot/operation waits and expose manual recovery without retry loops. The editor remains available to copy work after an operation timeout. The outer iframe is sandboxed; the shell has a restrictive meta CSP and indexable metadata/robots/sitemap.
+- `fast-uri` is updated to 3.1.8 and `source-map-js` to 1.2.2. `npm ci` succeeds; `npm audit` reports zero vulnerabilities. The new pinned parse5 dependency and its entities dependency are used only when validating.
+- The held-out graph guard now actually visits glob-loaded Quests and lazy validators, including JSON and TS/TSX/MJS test leaks. Direct filesystem path checks reject control bytes/backslashes. Documentation corrects the old claim that `runPhp` was constrained to `/wordpress`: the guard is lexical, not a PHP security sandbox. The dev agent runner now replaces the current frame, rejects overlapping runs and bounds boot waits.
+- The Pages workflow keeps its original push/manual triggers and serial deployment, adds the existing unit suite before build, scopes publish permissions to deployment, pins top-level actions and adds 10-minute job timeouts. Repository visibility and GitHub's free standard-runner/Pages compute policy were checked before changing automation. No scheduled browser matrix, extra runner job or automatic retry was added; the artifact action retains files for one day.
+
+Verification actually run on 2026-10-13:
+
+| Check | Result |
+| --- | --- |
+| Clean `npm ci`, TypeScript, metadata and official Blueprint validation | PASS |
+| `npm test` | **107 tests / 6 files PASS**, including negative authoring CLI cases and refusal to overwrite a draft |
+| `npm run build` and `npm audit` | PASS; **0 vulnerabilities** |
+| `test:ui` with mocked runtime transport | PASS, repeated after responsive-event timing and copy-feedback checks; **no external runtime requests**; 320, 390, 768, 1050 and 1440px |
+| Real `test:browser` on development server | PASS: both documented lab repairs, both overbroad regression failures, both site-owned paths, cancelled switch, reset and 390px editor |
+| Real `test:browser` on a served production artifact | **Final artifact PASS**: correct production editor tooltip/directions, both documented lab/production paths, regressions, reset and 390px. One prior cold-boot run failed on an upstream module download and is recorded separately below. |
+| `test:agent` | Eight expected records; overbroad policies fail with target passed, production policies receive the site-owned review; no page errors |
+| Built artifact inspection | Canonical/indexable shell, CSP, iframe restrictions and relative assets confirmed; no agent harness or source maps in the artifact |
+| Workflow static validation | YAML, unchanged triggers/concurrency, scoped permissions, SHA pins and timeout/test gates checked; **not executed remotely** |
+
+Screenshots and machine-readable reports are generated under gitignored `artifacts/current/`; the final production matrix is under `artifacts/current/final/`, and the earlier passing/failed production attempts remain under `artifacts/current/production/`. Historical artifacts remain untouched. Two test synchronization issues were fixed rather than masking failures: waiting for the nested editor's navigation before editing its previous document, and waiting for responsive media-query events before clicking the resized layout.
+
+Measured build trade-off (minified size; gzip in parentheses): CSS **35.04 → 15.91 kB** (**7.64 → 4.18 kB**, about 55% less raw CSS); entry JavaScript **44.85 → 54.11 kB** (**15.11 → 18.53 kB**) because the guide/recovery flow is richer. The parser/evidence chunk is **161.37 kB / 49.54 kB gzip**, deferred until validation. The upstream client remains **501 kB / 123.73 kB gzip**. This does not establish faster cold WordPress downloads; the improvement is less CSS/layout layering and no eager parser load or duplicate/stale runtime work.
+
+The official hosted runtime intermittently failed asset downloads during checks (including a WASM stream fetch failure). Complete human/agent matrices passed, but one final cold-boot attempt failed before validation with `Failed to fetch dynamically imported module: https://playground.wordpress.net/assets/php_8_3-DWGAjLGu.js` (`net::ERR_FAILED`). The UI exposed startup failure and manual retry. A subsequent HTTP HEAD returned 200; after that observation, **one explicitly bounded manual rerun passed the entire final production matrix**. No retry loop or alternate asset fallback was added. The cause of the intermittent browser download failure is not established, and a persistent/global upstream outage is not claimed. Network availability, full production security certification, Safari/Firefox execution and the modified remote deployment workflow remain outside what was verified here.
+
+The end-of-task remote check still reports `313e8e3` and Pages run `35812406683`; live HTML SHA-256 remains `c76bd753abc5408dca48ee2ddd62d5ab5ca78ee1217f89231fad00ad88fe67c3`. Changes remain uncommitted/unpublished locally. Final local acceptance is complete; obtain explicit commit/publication authorization before changing the live site.
+
+The next Quest contract is in [quest-scaling-analysis.md](quest-scaling-analysis.md#next-quest-003--redirect-chain-planned-not-shipped): a one-hop permanent legacy redirect, with temporary/unrelated controls, query preservation, loop/open-redirect boundaries and a reversible site-owned repair. No third Quest has been published or created as a misleadingly complete draft.
+
+## Release and Quest 003 implementation — 2026-10-13
+
+The user authorized publishing the completed workspace/two-Quest hardening, then implementing the planned redirect-chain Quest. The published slice must pass the existing checks and Pages workflow; verify the live artifact before calling release complete. The new Quest is implemented on a separate branch so incomplete work cannot auto-deploy from `main`.
+
+The user also reported slow temporary-site startup. Initial local preview measurements: the outer HTML returned HTTP 200 in 5–58 ms across three requests; hosted `remote.html` returned 200 in about 0.80s. These are not full WordPress boot timings. Measure actual browser readiness and failed/slow runtime resources on the live release; do not claim moving from localhost fixes external PHP/WordPress download latency, and do not introduce auto-retry loops or unverified mirrors.
+
+Quest 003 acceptance is the contract in [quest-scaling-analysis.md](quest-scaling-analysis.md#next-quest-003--redirect-chain-planned-not-shipped): bounded, scope-safe GET tracing; deterministic initial FAIL; one-hop permanent lab PASS; temporary/public/query/security regressions; site-owned production PASS; Reset FAIL; actionable beginner instructions; unit, authoring, browser and reference-policy coverage. No new accounts, scores, external services or recurring browser jobs are required.
+
+Status: release verification and Quest implementation pending.
+
 ## Constraints and follow-up
 
 1. The hosted Playground still requires network access and can occasionally fail while downloading WASM assets; the UI exposes a retryable environment error.
 2. The npm client and hosted remote runtime should remain version-aligned; the project pins `@wp-playground/client` `3.1.50`.
-3. Before Phase C, standardize shared evidence helpers for redirects, HTTP, robots, structured data, and JSON-LD, then add the remaining three WordPress Quests through the scaffold.
+3. Add the planned redirect-chain Quest as independently verifiable HTTP-evidence, fixture/evaluator and learner-workflow slices; do not batch the remaining Quests before that contract is proven.
 4. Every benchmark number the harness currently produces is open-book: both Quests are readable in the deployed bundle. The held-out seam is built and guarded, but no held-out Quest is authored, so per-Quest results still measure retrieval as much as diagnosis. Creating the private repository is the remaining human step.

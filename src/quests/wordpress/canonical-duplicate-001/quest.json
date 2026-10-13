@@ -5,7 +5,7 @@
   "sequence": 1,
   "platform": "wordpress",
   "title": "重复的 Canonical",
-  "description": "目标页暴露了相互冲突的 canonical。定位额外输出，同时保留插件负责的必要功能。",
+  "description": "Canonical（规范链接）告诉搜索引擎哪个网址是首选版本。本关目标页输出了两个互相冲突的规范链接；请保留正确链接、产品结构化数据和首页行为。",
   "difficulty": 2,
   "skills": ["canonical", "wordpress-hooks", "regression-testing"],
   "environment": { "wordpress": "6.7", "php": "8.3" },
@@ -17,7 +17,7 @@
   "editor": {
     "file": "seo-lab-product-suite/seo-lab-product-suite.php",
     "label": "打开插件编辑器",
-    "location": "后台路径：工具 → 插件文件编辑器"
+    "location": "顶部「② 编辑代码」直达 seo-lab-product-suite.php；后台路径：工具 → 插件文件编辑器。保存按钮在代码框下方，名为 Update File。"
   },
   "hints": [
     {
@@ -35,10 +35,23 @@
     {
       "level": 3,
       "title": "缩小修复范围",
-      "text": "禁用 Product Suite 会移除重复 canonical，但也会移除必须保留的 Product Schema。进入插件编辑器，首次点击 I understand；查找 data-seo-spike=\"duplicate\"，只停止这一条输出。",
+      "text": "不要禁用整个 Product Suite，否则会丢失产品结构化数据。点击顶部「② 编辑代码」，首次在实验环境确认 I understand；只取消 seo_lab_product_suite_duplicate_canonical 的 add_action 注册。下方「照着操作」有改前／改后示例。",
       "action": "open-editor"
     }
   ],
+  "walkthrough": {
+    "concept": "canonical 是页面头部的规范链接，不是页面里的普通超链接。本关故障插件多注册了一条 wp_head 输出；取消这一条注册即可，不要删除整个插件。",
+    "steps": [
+      "点击顶部绿色「① 运行验证」，读取 canonical 数量为 2 的失败证据。",
+      "点击顶部「② 编辑代码」，确认文件是 seo-lab-product-suite.php；若显示 I understand（我了解风险），仅在这个临时实验环境确认。",
+      "在编辑框中找到下面「修改前」的整行，只将这一行替换为「修改后」。保留 seo_lab_product_suite_schema 的 add_action 注册。",
+      "向下滚动 WordPress 编辑区，点击代码框下方的 Update File（更新文件）。必须看到 File edited successfully（文件修改成功）；PHP 报错时不要继续当作已保存。",
+      "点击顶部「① 运行验证」，检查目标、产品结构化数据和首页均通过；再读实现复盘。若改乱了，可用「重置环境」恢复初始故障。"
+    ],
+    "before": "add_action('wp_head', 'seo_lab_product_suite_duplicate_canonical', 20);",
+    "after": "// 实验修复：取消重复 canonical 的注册；保留产品结构化数据的注册。",
+    "caution": "这是直接修改供应方插件的实验修复，升级可能覆盖。通过后练习 Site Overrides 站点自有覆盖层；真实发布还需要备份、代码审查和回滚。"
+  },
   "searchQuery": "WordPress duplicate canonical wp_head remove_action",
   "success": {
     "title": "修复与回归均已验证",
@@ -48,17 +61,18 @@
     "title": "实现复盘",
     "notes": [
       "结果正确不等于实现方式只有一种；Validator 只裁决可观察结果与回归。",
-      "直接编辑第三方插件适合实验定位，但真实升级可能覆盖修改。"
+      "直接编辑第三方插件适合实验定位，但真实升级可能覆盖修改。",
+      "站点自有复盘只验证本关供应方文件未改、覆盖插件已启用且规则生效；不证明生产环境完全安全。真实上线须在预发布环境测试、备份并准备停用覆盖插件的回滚路径。"
     ],
     "advancedChallenge": {
       "title": "生产级改进",
-      "description": "重置故障后，不修改 Product Suite；改用站点自有的 Site Overrides 插件移除指定 hook。点击下面按钮后，系统会自动重置环境并打开正确的插件编辑器。",
+      "description": "重置故障后，不修改 Product Suite；改用站点自有的 Site Overrides 插件移除指定 hook（WordPress 回调挂钩）。按钮会先确认重置，再打开正确文件。编辑时侧栏会自动收起，可用顶部「任务与提示」重新查看或固定它。",
       "why": "Product Suite 可能在升级时被覆盖；站点自有覆盖层能保留 Product Schema，同时让这个站点明确表达自己的 SEO 规则。",
       "steps": [
         "点击“重置并自动打开编辑器”，等待新的 WordPress 环境就绪。",
         "确认后台已进入 工具 → 插件文件编辑器，并选中 seo-lab-site-overrides.php。",
-        "在文件现有 init 回调内添加下面代码，保存文件；不要改 Product Suite。",
-        "回到左侧点击“再次验证”，观察目标 canonical 和 Product Schema 两组证据。"
+        "在文件现有 init 回调的占位注释处添加下面代码，点击编辑框下方 Update File；不要改 Product Suite。",
+        "点击顶部「① 运行验证」，确认目标、产品结构化数据和首页均通过，并查看站点自有修复的复盘。"
       ],
       "instruction": "remove_action('wp_head', 'seo_lab_product_suite_duplicate_canonical', 20);",
       "editorFile": "seo-lab-site-overrides/seo-lab-site-overrides.php",

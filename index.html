@@ -3,242 +3,106 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-   <meta name="theme-color" content="#f7f9f8" />
+    <meta name="theme-color" content="#edf3f1" />
+    <meta name="description" content="免费的 SEO 实操训练场。在浏览器内修复 WordPress 的重复 canonical、误加 noindex，用目标与回归检查验证结果，并学习可维护的站点自有修复方式。" />
+    <meta name="referrer" content="no-referrer" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://playground.wordpress.net https://downloads.wordpress.org https://api.wordpress.org; frame-src https://playground.wordpress.net; object-src 'none'; base-uri 'none'; form-action 'self'" />
+    <link rel="canonical" href="https://seolab.eigentime.org/" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-   <title>重复的 Canonical | SEO Operator Lab</title>
+    <link rel="preconnect" href="https://playground.wordpress.net" crossorigin />
+    <title>SEO Operator Lab — WordPress SEO 实操训练</title>
   </head>
   <body>
-    <header class="topbar">
-      <div class="topbar-product">
-        <a class="brand" href="./" aria-label="SEO Operator Lab 首页">
-          <span class="brand-mark" aria-hidden="true"><i data-lucide="scan-search"></i></span>
-          <span>SEO Operator Lab</span>
-        </a>
-        <span class="topbar-divider" aria-hidden="true"></span>
-        <span class="workspace-label">训练工作台</span>
+    <noscript>这是需要 JavaScript 的交互练习。请启用 JavaScript 后，在临时 WordPress 环境中练习 canonical 与 noindex 修复；不要在这里输入真实站点的密钥或私密内容。</noscript>
+    <div id="app-shell" class="app-shell" data-fullscreen="false">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="SEO Operator Lab 首页（会重新开始练习）"><i data-lucide="scan-search" aria-hidden="true"></i><span>SEO Operator Lab</span></a>
+        <div class="quest-switcher">
+          <label for="quest-select">当前关卡</label>
+          <select id="quest-select" aria-label="选择训练任务" disabled></select>
+        </div>
+        <div class="runtime-indicator" data-state="booting"><span class="status-dot" aria-hidden="true"></span><span id="runtime-status" role="status" data-state="booting">正在准备实验环境</span></div>
+        <button id="open-guide" class="button button-quiet" type="button"><i data-lucide="book-open" aria-hidden="true"></i><span>操作指引</span></button>
+      </header>
+
+      <nav class="commandbar" aria-label="练习操作（始终可用的入口）">
+        <button id="validate" class="button button-primary" type="button" disabled><i data-lucide="scan-search" aria-hidden="true"></i><span>① 运行验证</span></button>
+        <button id="edit-plugin" class="button button-secondary" type="button" disabled><i data-lucide="wrench" aria-hidden="true"></i><span id="edit-plugin-label">② 编辑代码</span></button>
+        <button id="view-target" class="button button-secondary" type="button" disabled><i data-lucide="eye" aria-hidden="true"></i><span>查看目标页</span></button>
+        <button id="toggle-mission-panel" class="button button-secondary" type="button" aria-label="收起任务与提示" aria-controls="mission-panel" aria-expanded="true" title="任务与提示 ([)"><i data-lucide="panel-right-close" aria-hidden="true"></i><span>③ 任务与提示</span></button>
+        <button id="toggle-runtime-fullscreen" class="button button-quiet" type="button" aria-label="全屏专注" aria-controls="app-shell" aria-pressed="false" title="全屏专注 (F)"><i data-lucide="maximize-2" aria-hidden="true"></i><span>全屏</span></button>
+        <button id="reset" class="button button-quiet reset-button" type="button"><i data-lucide="rotate-ccw" aria-hidden="true"></i><span>重置环境</span></button>
+      </nav>
+
+      <div id="welcome-guide" class="welcome-guide">
+        <span>第一次来？先认一下按钮，再动手修复。所有修改仅用于临时练习。</span>
+        <button id="start-guide" class="button button-compact" type="button">带我上手</button>
+        <button id="dismiss-welcome" class="icon-button" type="button" aria-label="暂时关闭新手提醒"><i data-lucide="x" aria-hidden="true"></i></button>
       </div>
-      <div class="environment-status">
-        <span class="environment-label">实验环境</span>
-        <div class="runtime-indicator">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="runtime-status" role="status" data-state="booting">正在准备实验环境</span>
-        </div>
-        <button id="toggle-mission-panel" class="icon-button panel-toggle topbar-panel-toggle" type="button" aria-label="关闭任务检查器" aria-controls="mission-panel" aria-expanded="true" title="关闭任务检查器 ([)">
-          <i data-lucide="panel-right-close" aria-hidden="true"></i>
-        </button>
-      </div>
-    </header>
+      <section id="operation-guide" class="operation-guide" aria-labelledby="guide-title" hidden>
+        <div class="guide-copy" aria-live="polite"><span id="guide-count"></span><h2 id="guide-title"></h2><p id="guide-detail"></p></div>
+        <div class="guide-actions"><button id="guide-previous" class="button button-secondary" type="button">上一步</button><button id="guide-next" class="button button-primary" type="button">下一步</button><button id="close-guide" class="icon-button" type="button" aria-label="关闭操作引导"><i data-lucide="x" aria-hidden="true"></i></button></div>
+      </section>
 
-    <main class="workspace" data-result="idle" data-layout="focus" data-mission-view="overview">
-      <aside id="mission-panel" class="mission-panel" aria-labelledby="challenge-heading">
-        <header class="mission-inspector-header">
-          <div>
-            <span>Quest inspector</span>
-            <strong>任务工作区</strong>
-          </div>
-        </header>
-        <div class="mission-tabs" role="tablist" aria-label="任务检查器视图">
-          <button id="mission-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="mission-view-overview">任务</button>
-          <button id="mission-tab-results" type="button" role="tab" aria-selected="false" aria-controls="mission-view-results" tabindex="-1">验证</button>
-          <button id="mission-tab-hints" type="button" role="tab" aria-selected="false" aria-controls="mission-view-hints" tabindex="-1">提示</button>
-        </div>
-        <div id="mission-view-overview" class="mission-overview" role="tabpanel" aria-labelledby="mission-tab-overview">
-          <div class="quest-switcher">
-          <label for="quest-select">当前 Quest</label>
-          <select id="quest-select" aria-label="选择训练任务"></select>
-          </div>
-
-          <div class="quest-meta">
-          <span id="phase-label" class="phase-label">Phase B · Quest 01</span>
-          <span id="difficulty" class="difficulty" aria-label="难度 2 星">难度 2 / 5</span>
-        </div>
-
-        <h1 id="challenge-heading">重复的 Canonical</h1>
-        <p id="mission-brief" class="mission-brief">目标页暴露了相互冲突的 canonical。找出额外输出的来源，修复它，并用运行结果证明没有猜错。</p>
-
-        <dl class="target-facts">
-          <div>
-            <dt>目标页面</dt>
-            <dd><code id="target-url">/sample-product/</code></dd>
-          </div>
-          <div>
-            <dt>完成条件</dt>
-            <dd id="completion-condition">目标 canonical 正确 · 回归检查通过</dd>
-          </div>
-        </dl>
-
-        <div id="advanced-active" class="advanced-active" hidden>
-          <i data-lucide="shield-check" aria-hidden="true"></i>
-          <div>
-            <strong id="advanced-active-title">生产级改进进行中</strong>
-            <p id="advanced-active-description"></p>
-            <p id="advanced-active-why" class="advanced-active-why"></p>
-            <ol id="advanced-active-steps" class="advanced-active-steps"></ol>
-            <div class="advanced-active-snippet">
-              <code id="advanced-active-instruction"></code>
-              <button id="copy-advanced-active-instruction" class="icon-button" type="button" aria-label="复制生产级修复代码" title="复制修复代码">
-                <i data-lucide="copy" aria-hidden="true"></i>
-              </button>
+      <div id="runtime-error" class="runtime-error" role="alert" hidden></div>
+      <main class="workspace" data-result="idle" data-mission-view="overview" data-sidebar="expanded">
+        <section class="runtime-pane" aria-labelledby="playground-heading">
+          <div class="runtime-caption"><h2 id="playground-heading">WordPress 临时实验环境</h2><code id="runtime-target-path">/sample-product/</code><span>刷新会丢失修改</span></div>
+          <div id="runtime-canvas" class="iframe-shell">
+            <div id="boot-cover" class="boot-cover" role="status">
+              <i data-lucide="loader-circle" aria-hidden="true"></i>
+              <strong>正在创建 WordPress 6.7</strong><span>首次启动通常需要 30–90 秒。可以先读任务或操作指引。</span>
+              <button id="retry-runtime" class="button button-secondary" type="button" hidden>重试启动</button>
             </div>
-          </div>
-        </div>
-
-        <ol class="lab-steps" aria-label="实验进度">
-          <li id="step-environment" data-state="current"><span>1</span><strong>环境</strong></li>
-          <li id="step-evidence" data-state="pending"><span>2</span><strong>证据</strong></li>
-          <li id="step-repair" data-state="pending"><span>3</span><strong>修复</strong></li>
-        </ol>
-
-        <div class="controls" aria-label="实验操作">
-          <button id="validate" class="button button-primary" type="button" disabled>
-            <i data-lucide="scan-search" aria-hidden="true"></i>
-            <span>运行验证</span>
-          </button>
-          <button id="edit-plugin" class="button button-secondary" type="button" disabled>
-            <i data-lucide="wrench" aria-hidden="true"></i>
-            <span id="edit-plugin-label">打开插件编辑器</span>
-          </button>
-          <button id="reset" class="button button-quiet" type="button">
-            <i data-lucide="rotate-ccw" aria-hidden="true"></i>
-            <span>重置环境</span>
-          </button>
-        </div>
-          <p id="editor-location" class="editor-location">后台路径：工具 → 插件文件编辑器</p>
-          <footer class="project-support">
-            <span>免费实践 · 自愿支持</span>
-            <a href="https://eigentime.org/support?from=seo-operator-lab" target="_blank" rel="noopener noreferrer" aria-label="支持创作者（在新标签页打开）">
-              支持创作者
-              <i data-lucide="external-link" aria-hidden="true"></i>
-            </a>
-          </footer>
-        </div>
-
-        <div id="mission-view-results" class="mission-results" role="tabpanel" aria-labelledby="mission-tab-results">
-          <section class="panel-section validation-section" aria-labelledby="validation-heading">
-          <div class="section-heading">
-            <h2 id="validation-heading">验证结果</h2>
-            <span id="result-badge" class="result-badge" data-result="idle">未运行</span>
-          </div>
-          <div id="validation-output" class="validation-output" data-result="idle" aria-live="polite">
-            <div class="empty-state">
-              <i data-lucide="scan-search" aria-hidden="true"></i>
-              <p>先运行一次验证，建立故障基线。</p>
-            </div>
-          </div>
-          </section>
-
-          <section id="review-section" class="panel-section review-section" aria-labelledby="review-heading" hidden>
-          <div class="section-heading">
-            <h2 id="review-heading">实现复盘</h2>
-            <span id="review-badge" class="review-badge"></span>
-          </div>
-          <p id="review-summary" class="review-summary"></p>
-          <ul id="review-notes" class="review-notes"></ul>
-          <div id="advanced-challenge" class="advanced-challenge" hidden>
-            <strong id="advanced-title"></strong>
-            <p id="advanced-description"></p>
-            <p id="advanced-why" class="advanced-why"></p>
-            <ol id="advanced-steps" class="advanced-steps"></ol>
-            <div class="advanced-snippet">
-              <code id="advanced-instruction"></code>
-              <button id="copy-advanced-instruction" class="icon-button" type="button" aria-label="复制生产级修复代码" title="复制修复代码">
-                <i data-lucide="copy" aria-hidden="true"></i>
-              </button>
-            </div>
-            <button id="start-advanced" class="button button-secondary" type="button">
-              <i data-lucide="shield-check" aria-hidden="true"></i>
-              <span></span>
-            </button>
-          </div>
-          </section>
-        </div>
-
-        <section id="mission-view-hints" class="panel-section hint-section" role="tabpanel" aria-labelledby="mission-tab-hints">
-          <div class="section-heading">
-            <h2 id="hint-heading">诊断支援</h2>
-            <span id="hint-progress" class="hint-progress">0 / 3</span>
-          </div>
-          <p class="section-note">不熟悉时无需盲猜。提示会从“怎么看证据”逐步推进到“改哪里”。</p>
-          <ol id="hint-list" class="hint-list" aria-live="polite"></ol>
-          <button id="reveal-hint" class="button button-hint" type="button">
-            <i data-lucide="circle-help" aria-hidden="true"></i>
-            <span>显示第一条提示</span>
-          </button>
-          <div class="research-clue">
-            <span>检索线索</span>
-            <code id="search-query">WordPress duplicate canonical wp_head</code>
-            <button id="copy-query" class="icon-button" type="button" aria-label="复制检索线索" title="复制检索线索">
-              <i data-lucide="copy" aria-hidden="true"></i>
-            </button>
+            <iframe id="wp-playground" title="WordPress Playground 实验环境" loading="eager" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-downloads" allow="fullscreen" referrerpolicy="no-referrer"></iframe>
           </div>
         </section>
-      </aside>
-
-     <div id="mission-resizer" class="mission-resizer" role="separator" tabindex="0" aria-label="调整任务面板宽度" aria-controls="mission-panel" aria-orientation="vertical" aria-valuemin="340" aria-valuemax="560" aria-valuenow="420"></div>
-
-     <section class="runtime-pane" aria-labelledby="playground-heading">
-        <header class="runtime-toolbar">
-          <div class="runtime-heading">
-            <div>
-              <span class="toolbar-eyebrow"><span aria-hidden="true"></span> Live runtime</span>
-              <h2 id="playground-heading">WordPress Playground</h2>
+        <div id="mission-resizer" class="mission-resizer" role="separator" tabindex="0" aria-label="调整任务面板宽度" aria-controls="mission-panel" aria-orientation="vertical" aria-valuemin="320" aria-valuemax="520" aria-valuenow="380"></div>
+        <aside id="mission-panel" class="mission-panel" aria-labelledby="challenge-heading">
+          <header class="mission-inspector-header"><strong>任务检查器</strong><div><button id="pin-mission-panel" class="button button-quiet" type="button" aria-pressed="false"><i data-lucide="pin" aria-hidden="true"></i><span>固定</span></button><button id="close-mission-panel" class="icon-button" type="button" aria-label="收起任务面板"><i data-lucide="x" aria-hidden="true"></i></button></div></header>
+          <div class="mission-tabs" role="tablist" aria-label="任务检查器视图">
+            <button id="mission-tab-overview" type="button" role="tab" aria-selected="true" aria-controls="mission-view-overview">任务</button>
+            <button id="mission-tab-results" type="button" role="tab" aria-selected="false" aria-controls="mission-view-results" tabindex="-1">验证</button>
+            <button id="mission-tab-hints" type="button" role="tab" aria-selected="false" aria-controls="mission-view-hints" tabindex="-1">提示</button>
+          </div>
+          <div id="mission-view-overview" class="mission-view mission-overview" role="tabpanel" aria-labelledby="mission-tab-overview" tabindex="0">
+            <div class="quest-meta"><span id="phase-label" class="phase-label">关卡 01</span><span id="difficulty" class="difficulty">难度 2 / 5</span></div>
+            <h1 id="challenge-heading">重复的 Canonical</h1>
+            <p id="mission-brief" class="mission-brief">定位额外的规范链接输出，同时保留插件的必要功能。</p>
+            <dl class="target-facts"><div><dt>目标页面</dt><dd><code id="target-url">/sample-product/</code></dd></div><div><dt>完成条件</dt><dd id="completion-condition">目标 canonical 正确 · 回归检查通过</dd></div></dl>
+            <ol class="lab-steps" aria-label="实验进度"><li id="step-environment" data-state="current"><span>1</span>环境</li><li id="step-evidence" data-state="pending"><span>2</span>证据</li><li id="step-repair" data-state="pending"><span>3</span>修复</li></ol>
+            <p id="editor-location" class="editor-location"></p>
+            <p class="section-note">按钮都在顶部：先 <strong>① 运行验证</strong>，再 <strong>② 编辑代码</strong>。不知道改哪里？</p>
+            <button id="open-hints" class="button button-hint" type="button"><i data-lucide="circle-help" aria-hidden="true"></i><span>查看分步提示与操作示例</span></button>
+            <div id="advanced-active" class="advanced-active" hidden>
+              <strong id="advanced-active-title"></strong><p id="advanced-active-description"></p><p id="advanced-active-why"></p><ol id="advanced-active-steps"></ol>
+              <div class="code-block"><pre><code id="advanced-active-instruction"></code></pre><button id="copy-advanced-active-instruction" class="icon-button" type="button" aria-label="复制生产路径代码"><i data-lucide="copy" aria-hidden="true"></i></button></div>
             </div>
+            <div class="lab-boundary"><strong>安全边界</strong><p>这是浏览器里的临时站点，不是你的生产 WordPress。不要输入真实密码、密钥或私密资料。直接编辑插件仅用于实验；真实部署须备份、审查并准备回滚。</p></div>
+            <footer class="project-support"><span>免费实践 · 自愿支持</span><a href="https://eigentime.org/support?from=seo-operator-lab" target="_blank" rel="noopener noreferrer">支持创作者<i data-lucide="external-link" aria-hidden="true"></i></a></footer>
           </div>
-          <div class="runtime-actions">
-            <div class="runtime-url" aria-label="当前目标路径">
-              <span aria-hidden="true"></span>
-              <code id="runtime-target-path">/sample-product/</code>
-            </div>
-            <button id="view-target" class="button button-compact" type="button" disabled>
-              <i data-lucide="eye" aria-hidden="true"></i>
-              <span>查看目标页</span>
-            </button>
-            <button id="toggle-runtime-fullscreen" class="icon-button fullscreen-toggle" type="button" aria-label="全屏显示运行环境" aria-controls="runtime-canvas" aria-pressed="false" title="全屏显示运行环境 (F)">
-              <i data-lucide="maximize-2" aria-hidden="true"></i>
-            </button>
+          <div id="mission-view-results" class="mission-view mission-results" role="tabpanel" aria-labelledby="mission-tab-results" tabindex="0" hidden>
+            <section class="validation-section" aria-labelledby="validation-heading">
+              <div class="section-heading"><h2 id="validation-heading">验证结果</h2><span id="result-badge" class="result-badge" data-result="idle">未运行</span></div>
+              <p id="validation-staleness" class="section-note" hidden>这是上次验证的结果。保存修改后，请用顶部按钮重新验证。</p>
+              <div id="validation-output" class="validation-output" data-result="idle" aria-live="polite"></div>
+            </section>
+            <section id="review-section" class="panel-section review-section" aria-labelledby="review-heading" hidden>
+              <div class="section-heading"><h2 id="review-heading">实现复盘</h2><span id="review-badge" class="review-badge"></span></div><p id="review-summary"></p><ul id="review-notes"></ul>
+              <div id="advanced-challenge" class="advanced-challenge" hidden><strong id="advanced-title"></strong><p id="advanced-description"></p><p id="advanced-why"></p><ol id="advanced-steps"></ol><div class="code-block"><pre><code id="advanced-instruction"></code></pre><button id="copy-advanced-instruction" class="icon-button" type="button" aria-label="复制生产路径代码"><i data-lucide="copy" aria-hidden="true"></i></button></div><button id="start-advanced" class="button button-secondary" type="button"><i data-lucide="shield-check" aria-hidden="true"></i><span></span></button></div>
+            </section>
+            <div id="success-toast" class="success-toast" role="status" data-visible="false"><strong id="success-title"></strong><p id="success-message"></p><div><button id="success-reset" class="button button-secondary" type="button">重置反证</button><button id="dismiss-success" class="icon-button" type="button" aria-label="关闭成功提示"><i data-lucide="x" aria-hidden="true"></i></button></div></div>
           </div>
-        </header>
-        <div id="runtime-canvas" class="iframe-shell" data-fullscreen="false">
-          <div id="boot-cover" class="boot-cover">
-            <i data-lucide="loader-circle" aria-hidden="true"></i>
-            <strong>正在创建 WordPress 6.7</strong>
-            <span>首次启动通常需要 30–90 秒</span>
-          </div>
-          <iframe id="wp-playground" title="WordPress Playground 实验环境" loading="eager"></iframe>
-          <button id="exit-runtime-fullscreen" class="icon-button fullscreen-exit" type="button" aria-label="退出全屏" title="退出全屏">
-            <i data-lucide="minimize-2" aria-hidden="true"></i>
-          </button>
-      </div>
-    </section>
-
-  </main>
-
-    <div id="success-toast" class="success-toast" role="status" aria-live="assertive" data-visible="false">
-      <div class="success-icon" aria-hidden="true"><i data-lucide="circle-check"></i></div>
-      <div class="success-copy">
-        <strong id="success-title">修复已验证</strong>
-        <span id="success-message">目标检查和回归检查均符合预期。</span>
-      </div>
-      <button id="success-reset" class="button button-toast" type="button">
-        <i data-lucide="rotate-ccw" aria-hidden="true"></i>
-        <span>重置反证</span>
-      </button>
-      <button id="dismiss-success" class="icon-button dismiss-success" type="button" aria-label="关闭成功提示" title="关闭">
-        <i data-lucide="x" aria-hidden="true"></i>
-      </button>
+          <section id="mission-view-hints" class="mission-view hint-section" role="tabpanel" aria-labelledby="mission-tab-hints" tabindex="0" hidden>
+            <div class="section-heading"><h2>诊断支援</h2><span id="hint-progress" class="hint-progress">0 / 3</span></div><p class="section-note">先看证据，再定位来源。不用盲猜，提示会逐步展开。</p>
+            <ol id="hint-list" class="hint-list" aria-live="polite"></ol><button id="reveal-hint" class="button button-hint" type="button"><i data-lucide="circle-help" aria-hidden="true"></i><span>显示第一条提示</span></button>
+            <details id="solution-guide" class="solution-guide"><summary>照着操作（展开会显示实验修复答案）</summary><p id="solution-concept"></p><ol id="solution-steps"></ol><strong>修改前</strong><div class="code-block"><pre><code id="solution-before"></code></pre></div><strong>修改后</strong><div class="code-block"><pre><code id="solution-after"></code></pre><button id="copy-solution" class="icon-button" type="button" aria-label="复制修改后代码"><i data-lucide="copy" aria-hidden="true"></i></button></div><p id="solution-caution" class="caution"></p><button id="solution-open-editor" class="button button-secondary" type="button" disabled>打开本关文件（不自动修改）</button></details>
+            <div class="research-clue"><span>检索线索</span><code id="search-query"></code><button id="copy-query" class="icon-button" type="button" aria-label="复制检索线索"><i data-lucide="copy" aria-hidden="true"></i></button></div>
+          </section>
+        </aside>
+      </main>
+      <dialog id="reset-dialog" class="reset-dialog" aria-labelledby="rebuild-dialog-title" aria-describedby="rebuild-dialog-description"><form method="dialog"><i data-lucide="triangle-alert" aria-hidden="true"></i><h2 id="rebuild-dialog-title">重置当前环境？</h2><p id="rebuild-dialog-description">所有运行时修改会被丢弃，恢复本关初始故障。</p><div class="dialog-actions"><button id="cancel-reset" class="button button-secondary" value="cancel" autofocus>取消</button><button id="confirm-reset" class="button button-danger" value="confirm" type="button">确认重置</button></div></form></dialog>
     </div>
-
-    <dialog id="reset-dialog" class="reset-dialog">
-      <form method="dialog">
-        <div class="dialog-icon" aria-hidden="true"><i data-lucide="triangle-alert"></i></div>
-        <h2 id="rebuild-dialog-title">重置当前环境？</h2>
-        <p id="rebuild-dialog-description">插件修改会被丢弃，Blueprint 会重新创建最初的故障状态。</p>
-        <div class="dialog-actions">
-          <button id="cancel-reset" class="button button-secondary" value="cancel">取消</button>
-          <button id="confirm-reset" class="button button-danger" value="confirm" type="button">确认重置</button>
-        </div>
-      </form>
-    </dialog>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

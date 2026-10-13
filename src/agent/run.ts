@@ -1,3 +1,4 @@
+import { withDeadline } from '../runtime';
 import { getQuest } from '../quests/registry';
 import { runAgentQuest } from './harness';
 import { getHeldOutQuest, heldOutPolicies, heldOutQuestIds, isHeldOut } from './heldout';
@@ -37,7 +38,7 @@ declare global {
   }
 }
 
-const iframe = document.querySelector<HTMLIFrameElement>('#agent-runtime');
+let iframe = document.querySelector<HTMLIFrameElement>('#agent-runtime');
 const statusElement = document.querySelector<HTMLElement>('#agent-status');
 const outputElement = document.querySelector<HTMLElement>('#agent-output');
 
@@ -60,17 +61,27 @@ function setStatus(message: string, state: 'booting' | 'running' | 'done' | 'err
 async function bootFreshRuntime(blueprint: unknown) {
   const { startPlaygroundWeb } = await import('@wp-playground/client');
   const replacement = iframe!.cloneNode(false) as HTMLIFrameElement;
+  replacement.removeAttribute('src');
   iframe!.replaceWith(replacement);
-  const target = document.querySelector<HTMLIFrameElement>('#agent-runtime');
-  if (!target) throw new Error('The runtime iframe could not be replaced');
-  return startPlaygroundWeb({
-    iframe: target,
-    remoteUrl: 'https://playground.wordpress.net/remote.html',
-    blueprint: blueprint as Parameters<typeof startPlaygroundWeb>[0]['blueprint'],
-  });
+  iframe = replacement;
+  try {
+    return await withDeadline(startPlaygroundWeb({
+      iframe: replacement,
+      remoteUrl: 'https://playground.wordpress.net/remote.html',
+      blueprint: blueprint as Parameters<typeof startPlaygroundWeb>[0]['blueprint'],
+    }), 180_000, new AbortController().signal);
+  } catch (error) {
+    const blank = replacement.cloneNode(false) as HTMLIFrameElement;
+    blank.removeAttribute('src');
+    replacement.replaceWith(blank);
+    iframe = blank;
+    throw error;
+  }
 }
 
+let running = false;
 window.agentRun = async ({ questId, policy, disclosure = 'guided' }) => {
+  if (running) throw new Error('An agent run is already in progress');
   /**
    * Held-out Quests are resolved first. They live outside the public registry, so
    * `getQuest()` cannot see them and would silently fall back to the first public
@@ -80,25 +91,29 @@ window.agentRun = async ({ questId, policy, disclosure = 'guided' }) => {
   const quest = heldOutQuest ?? getQuest(questId);
   if (quest.metadata.id !== questId) throw new Error(`Unknown Quest id: ${questId}`);
 
-  const selectedPolicy = referencePolicies[policy as ReferencePolicyName] ?? heldOutPolicies[policy];
+  const selectedPolicy = Object.hasOwn(referencePolicies, policy)
+    ? referencePolicies[policy as ReferencePolicyName]
+    : Object.hasOwn(heldOutPolicies, policy) ? heldOutPolicies[policy] : undefined;
   if (!selectedPolicy) throw new Error(`Unknown reference policy: ${policy}`);
 
-  setStatus(`Booting ${quest.metadata.id}`, 'booting');
-  const client = await bootFreshRuntime(quest.blueprint);
-
-  setStatus(`Running ${policy} against ${quest.metadata.id}`, 'running');
-  const record = await runAgentQuest({
-    client,
-    quest,
-    agent: `reference:${policy}`,
-    policy: selectedPolicy,
-    disclosure,
-    heldOut: isHeldOut(questId),
-  });
-
-  outputElement!.textContent = JSON.stringify(record, null, 2);
-  setStatus(`${record.outcome.toUpperCase()} in ${record.durationMs}ms`, record.outcome === 'error' ? 'error' : 'done');
-  return record;
+  running = true;
+  try {
+    setStatus(`Booting ${quest.metadata.id}`, 'booting');
+    const client = await bootFreshRuntime(quest.blueprint);
+    setStatus(`Running ${policy} against ${quest.metadata.id}`, 'running');
+    const record = await runAgentQuest({
+      client, quest, agent: `reference:${policy}`, policy: selectedPolicy,
+      disclosure, heldOut: isHeldOut(questId),
+    });
+    outputElement!.textContent = JSON.stringify(record, null, 2);
+    setStatus(`${record.outcome.toUpperCase()} in ${record.durationMs}ms`, record.outcome === 'error' ? 'error' : 'done');
+    return record;
+  } catch (error) {
+    setStatus(`Run failed: ${error instanceof Error ? error.message : String(error)}`, 'error');
+    throw error;
+  } finally {
+    running = false;
+  }
 };
 
 window.agentHeldOutQuestIds = [...heldOutQuestIds];

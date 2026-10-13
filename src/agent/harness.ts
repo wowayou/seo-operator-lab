@@ -20,9 +20,10 @@ const decoder = new TextDecoder();
 /**
  * Wraps a live Playground client as an instrumented agent tool surface.
  *
- * Every call is recorded so a run can be audited afterwards. Paths are confined
- * to the WordPress tree, and `validate` is intentionally absent from the surface
- * -- the agent can observe the runtime, but only the harness may judge it.
+ * Every call is recorded so a run can be audited afterwards. Direct filesystem
+ * arguments are checked against the WordPress tree; `runPhp` is privileged
+ * within the disposable WASM runtime and is not constrained by that lexical
+ * guard. `validate` is intentionally absent from the tool surface.
  */
 export class AgentSession {
   readonly brief: AgentBrief;

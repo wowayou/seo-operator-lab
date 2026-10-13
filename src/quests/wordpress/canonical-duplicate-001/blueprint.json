@@ -20,7 +20,7 @@
     { "step": "activatePlugin", "pluginPath": "seo-lab-site-overrides/seo-lab-site-overrides.php" },
     {
       "step": "runPHP",
-      "code": "<?php\nrequire_once '/wordpress/wp-load.php';\nif (!get_page_by_path('sample-product', OBJECT, 'page')) {\n    wp_insert_post([\n        'post_title' => 'Sample Product',\n        'post_name' => 'sample-product',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>Phase B canonical target page.</p>',\n    ]);\n}\n$home = get_page_by_path('lab-home', OBJECT, 'page');\nif (!$home) {\n    $home_id = wp_insert_post([\n        'post_title' => 'SEO Lab Home',\n        'post_name' => 'lab-home',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>Regression control page.</p>',\n    ]);\n    update_option('show_on_front', 'page');\n    update_option('page_on_front', $home_id);\n}\n"
+      "code": "<?php\nrequire_once '/wordpress/wp-load.php';\nupdate_option('blog_public', 1);\nif (!get_page_by_path('sample-product', OBJECT, 'page')) {\n    wp_insert_post([\n        'post_title' => 'Sample Product',\n        'post_name' => 'sample-product',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>Phase B canonical target page.</p>',\n    ]);\n}\n$home = get_page_by_path('lab-home', OBJECT, 'page');\nif (!$home) {\n    $home_id = wp_insert_post([\n        'post_title' => 'SEO Lab Home',\n        'post_name' => 'lab-home',\n        'post_status' => 'publish',\n        'post_type' => 'page',\n        'post_content' => '<p>Regression control page.</p>',\n    ]);\n    update_option('show_on_front', 'page');\n    update_option('page_on_front', $home_id);\n}\n"
     }
   ]
 }

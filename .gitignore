@@ -1,6 +1,9 @@
 node_modules/
 dist/
 
+# Regenerable local verification screenshots and reports.
+artifacts/current/
+
 # Held-out benchmark Quests live in a separate private checkout and must never
 # be committed here or built into the public site. See docs/agent-benchmark.md.
 src/quests/heldout/

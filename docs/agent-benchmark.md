@@ -44,10 +44,7 @@ adds no new runtime capability:
 | `fetchUrl` | `request` | observe rendered output |
 | `runPhp` | `run` | query WordPress state |
 
-Paths are confined to `/wordpress` by `assertAllowedPath()`. That confinement
-keeps runs comparable — an Agent cannot reach PHP internals or the harness — but
-it is **not** the leakage defense. The lab's own source is not in that filesystem
-at all.
+Direct filesystem tool arguments are normalized and constrained to `/wordpress` by `assertAllowedPath()`, including rejection of control bytes and backslashes. **This is a lexical guard, not a security sandbox.** `runPhp` can access other paths in the PHP-WASM virtual filesystem, and symlinks can bypass lexical checks. Never mount secrets or host directories. The disposable cross-origin runtime is the boundary, not the helper. The lab's source/harness is not in that virtual filesystem, and this is not a task-leakage defense.
 
 ## What is measured
 
@@ -77,12 +74,11 @@ A result is only comparable against runs at the same level:
 | `guided` | the editor file and its admin location |
 | `hinted` | the three authored progressive hints |
 
-`postPassReview` is withheld at every level, because it names the exact
-production fix.
+`postPassReview` and the human-only exact-edit `walkthrough` are withheld at every level. They are still public teaching material in the website bundle, not secret benchmark answers.
 
 ## Calibration
 
-`npm run test:agent` runs seven deterministic reference policies. They are
+`npm run test:agent` runs eight deterministic reference policies. They are
 fixtures, not Agents under test. They exist to prove the harness distinguishes
 outcomes that a transcript would describe identically:
 
@@ -92,7 +88,8 @@ outcomes that a transcript would describe identically:
 | `canonicalLabRepair` | `pass`, review `lab` |
 | `canonicalProductionRepair` | `pass`, review `production` |
 | `canonicalOverbroadRepair` | `fail`, `targetPassed: true`, 1 regression |
-| `noindexNarrowRepair` | `pass` |
+| `noindexNarrowRepair` | `pass`, review `lab` |
+| `noindexProductionRepair` | `pass`, review `production` |
 | `noindexOverbroadRepair` | `fail`, `targetPassed: true`, 1 regression |
 | `escapeAttempt` | `error`, no verdict produced |
 
@@ -105,11 +102,9 @@ what any Agent scores.
 
 This is the unsolved problem, and it is worse than "the repository is public".
 
-**Observed.** The production bundle at `dist/assets/index-*.js` contains the
+**Observed.** The production artifact's JavaScript chunks contain the
 fault-injection Blueprint source and the Validator's check ids
-(`product-schema-preserved`, `private-reference`). Blueprints and validators are
-imported by the app, so they are compiled into the artifact served to every
-visitor. Making the repository private would not change this.
+(`product-schema-preserved`, `private-reference`). Validators and the HTML parser now load on demand, but are still public downloadable assets. Lazy loading is a performance boundary, not secrecy.
 
 The Agent harness itself does not leak: Vite bundles only the root `index.html`,
 so `agent-run.html`, `src/agent/**`, and the reference policies (which contain the
@@ -162,13 +157,9 @@ Three properties make this safe, and each is enforced rather than documented:
    graph, if the gitignore entry is removed, or if `policies.ts` mentions
    `heldout`.
 
-That test was itself verified by injecting four leak shapes — a side-effect
-import, a `from` import, a dynamic `import()`, and a widened registry glob — and
-confirming each one turns it red. Its first implementation missed all four: the
-extractor required a `from` clause, so `import './x';` was invisible to it. A
-leak test that cannot fail is worse than no test, because it manufactures
-confidence. The extractor now enumerates import shapes explicitly and has a
-self-check asserting it finds each one.
+The original test was checked with four direct leak shapes (side-effect import, `from` import, dynamic import and widened glob). The 2026-10 hardening found another blind spot: it inspected glob **patterns** without traversing the modules they loaded. That would miss an import from a Quest's lazy validator.
+
+The guard now uses TypeScript's syntax tree, understands literal glob arrays, traverses matched modules (including JSON imports), resolves real paths and rejects opaque import/glob expressions. A temporary fixture injects a leak behind `registry glob → Quest module → lazy validator → JSON` and asserts the graph actually reaches it. Comments and quoted import examples are not executable edges. The public-graph assertion also requires the real Noindex validator to be visited, so lazy loading cannot silently remove the coverage.
 
 **Still open.** No held-out Quest is authored yet, so every number this harness
 currently produces is open-book. Creating the private repository is a deliberate
@@ -183,25 +174,21 @@ npm test                                     # isolation guards must stay green
 npm run test:agent                           # covers held-out Quests when present
 ```
 
-A held-out Quest should not reuse a public fault type. `src/quests/http.ts`
-exists for that reason: it supplies redirect and header evidence helpers, since
-`PlaygroundClient.request()` returns raw headers and does not follow redirects,
-and no public Quest exercises that shape.
+A held-out Quest should not reuse a public fault type. `src/quests/http.ts` supplies reusable header and redirect helpers. Noindex now inspects response headers; the next planned public Quest exercises redirect chains. Neither that public plan nor its eventual fixtures should be reused as unseen answers.
 
 ## Status
 
 Verified by execution, not by inspection:
 
 - The loop boots, reads, writes, and validates programmatically in a headless
-  browser (`chrome-headless-shell`), and the seven reference policies produce the
-  seven distinct records above.
+  browser (`chrome-headless-shell`), and the eight reference policies produce the
+  eight expected records above. Each run replaces the actual current iframe; overlapping runs are rejected and boot waits are bounded to 180 seconds.
 - Both overbroad repairs record `targetPassed: true` with `outcome: fail` — the
   distinction the harness exists to make.
 - The held-out seam degrades correctly when the private checkout is absent: the
   agent smoke reports `heldOut: "none present"` and every run is labeled
   `heldOut: false`.
-- The isolation test catches all four leak shapes it claims to catch, confirmed by
-  injecting each one.
+- The isolation guard checks direct imports and actual glob-loaded modules; its injected lazy-validator/JSON leak is visible to the graph traversal.
 
 Not built: held-out Quests themselves, scoring, multi-run aggregation, real LLM
 Agent integration, persistence. The harness accepts any `AgentPolicy`, so

@@ -42,12 +42,14 @@ describe('buildBrief disclosure levels', () => {
     const advanced = metadata.postPassReview.advancedChallenge?.instruction ?? '';
     expect(advanced.length).toBeGreaterThan(0);
     for (const level of ['minimal', 'guided', 'hinted'] as const) {
-      expect(JSON.stringify(buildBrief(metadata, level))).not.toContain(advanced);
+      const brief = buildBrief(metadata, level);
+      expect(JSON.stringify(brief)).not.toContain(advanced);
+      expect(brief).not.toHaveProperty('walkthrough');
     }
   });
 });
 
-describe('filesystem confinement', () => {
+describe('direct filesystem argument guard (not a PHP sandbox)', () => {
   it('normalizes traversal segments', () => {
     expect(normalizeVfsPath('/wordpress/wp-content/../wp-config.php')).toBe('/wordpress/wp-config.php');
     expect(normalizeVfsPath('/wordpress//wp-content/./plugins')).toBe('/wordpress/wp-content/plugins');
@@ -62,6 +64,10 @@ describe('filesystem confinement', () => {
     expect(() => assertAllowedPath('/etc/passwd')).toThrow(/outside/);
     expect(() => assertAllowedPath('/wordpress/../tmp/x')).toThrow(/outside/);
     expect(() => assertAllowedPath('/wordpress-other/x')).toThrow(/outside/);
+  });
+
+  it.each(['/wordpress/a\u0000.php', '/wordpress/a\n.php', '/wordpress/..\\etc\\passwd'])('rejects ambiguous path bytes: %j', (input) => {
+    expect(() => assertAllowedPath(input)).toThrow(/control characters|backslashes/);
   });
 
   it('accepts the root and paths beneath it', () => {

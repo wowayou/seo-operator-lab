@@ -26,7 +26,11 @@ The official Blueprint schema is declared in each `blueprint.json` with:
 
 ## Metadata rules
 
-`quest.json` owns learner-facing copy, target URL, three progressive hints, editor path, success copy, and post-pass review. It also carries future review/scoring fields, but Phase B does not persist or calculate them.
+`quest.json` owns learner-facing copy, target URL, three progressive hints, an opt-in `walkthrough`, editor path, success copy, and post-pass review. It also carries future review/scoring fields, but Phase B does not persist or calculate them.
+
+`walkthrough` requires `concept`, at least four `steps`, exact `before`/`after` snippets, and a `caution` distinguishing an experiment from production. Name the real top-bar action, owning filename, first-use warning, **Update File** save button, success/error feedback and return-to-validation action. Do not rely on “left/right” positions or assume the learner recognizes an icon. The UI explicitly labels the answer disclosure and never applies the edit automatically.
+
+The authoring check enforces ordered hint levels, matching pinned versions, created/active editor plugins, no remaining TODO copy and a `walkthrough.before` snippet that actually exists in the fixture. Existing draft directories are not overwritten by the scaffolder.
 
 Hints should progress from evidence, to ownership, to the smallest useful change. Do not put the full solution in level 1.
 
@@ -39,6 +43,9 @@ For a `postPassReview.advancedChallenge`, add `why` and `steps` when the product
 - A narrow repair produces PASS.
 - An overbroad repair fails at least one regression check when that distinction matters.
 - Reset returns to FAIL.
+- The browser matrix applies the **documented** before/after edit through WordPress and checks save success, not merely an equivalent hidden patch.
+- Each production path preserves the vendor source, uses a site-owned extension point and has a documented rollback boundary. A direct vendor edit can pass behavior checks but is labeled experimental.
+- Cover relevant headers as well as HTML, malformed/empty responses and intentionally unaffected pages. Noindex must not be described as privacy protection.
 - The browser matrix covers the Quest's editor path and mobile layout.
 - `npm run validate:quests` reports the Quest.
 - The Validator has pure unit tests for broken, repaired, and regression states.

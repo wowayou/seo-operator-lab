@@ -73,6 +73,13 @@ export interface QuestMetadata {
     location: string;
   };
   hints: QuestHint[];
+  walkthrough: {
+    concept: string;
+    steps: string[];
+    before: string;
+    after: string;
+    caution: string;
+  };
   searchQuery: string;
   success: {
     title: string;

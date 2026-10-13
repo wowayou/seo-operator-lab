@@ -13,10 +13,8 @@ import { chromium } from 'playwright-core';
 
 const browser = await chromium.launch({
   executablePath:
-    process.env.CHROME_PATH ??
-    '/home/forbackup/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell',
+    process.env.CHROME_PATH ?? chromium.executablePath(),
   headless: true,
-  args: ['--no-sandbox'],
 });
 
 const baseUrl = process.env.LAB_URL ?? 'http://127.0.0.1:5173';
@@ -77,8 +75,17 @@ const expectations = [
   },
   {
     questId: NOINDEX,
+    policy: 'noindexProductionRepair',
+    note: 'site-owned filter keeps vendor code and future exclusions intact',
+    outcome: 'pass',
+    targetPassed: true,
+    regressionsIntroduced: 0,
+    reviewLevel: 'production',
+  },
+  {
+    questId: NOINDEX,
     policy: 'noindexOverbroadRepair',
-    note: 'removing every rule leaks the private control page',
+    note: 'removing every rule breaks the intentionally excluded control page',
     outcome: 'fail',
     targetPassed: true,
     regressionsIntroduced: 1,

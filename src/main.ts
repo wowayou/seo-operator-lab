@@ -1,741 +1,411 @@
-import {
-  Check,
-  CircleCheck,
-  CircleHelp,
-  CircleX,
-  Copy,
-  ChevronDown,
-  createIcons,
-  ExternalLink,
-  Eye,
-  LoaderCircle,
-  Maximize2,
-  Minimize2,
-  PanelRightClose,
-  PanelRightOpen,
-  RotateCcw,
-  ScanSearch,
-  ShieldCheck,
-  TriangleAlert,
-  Wrench,
-  X,
-} from 'lucide';
-import type { PlaygroundClient } from '@wp-playground/client';
 import { getQuest, quests } from './quests/registry';
 import type { AdvancedChallenge, QuestDefinition, ValidationCheck, ValidationResult } from './quests/types';
+import { RuntimeSession } from './runtime';
+import { copyCode, createIcon, refreshIcons, replaceIcon, requireElement } from './ui/dom';
+import { setupOnboarding } from './ui/onboarding';
+import { setupWorkspace } from './ui/workspace';
 import './styles.css';
 
-const iconSet = {
-  Check,
-  CircleCheck,
-  CircleHelp,
-  CircleX,
-  Copy,
-  ChevronDown,
-  ExternalLink,
-  Eye,
-  LoaderCircle,
-  Maximize2,
-  Minimize2,
-  PanelRightClose,
-  PanelRightOpen,
-  RotateCcw,
-  ScanSearch,
-  ShieldCheck,
-  TriangleAlert,
-  Wrench,
-  X,
-};
-
-function requireElement<T extends Element>(selector: string): T {
-  const element = document.querySelector<T>(selector);
-  if (!element) throw new Error(`Required Phase B element is missing: ${selector}`);
-  return element;
-}
-
-function refreshIcons(root: Document | Element = document): void {
-  createIcons({ icons: iconSet, root, attrs: { 'stroke-width': 1.8 } });
-}
-
-function createIcon(name: string): HTMLElement {
-  const icon = document.createElement('i');
-  icon.dataset.lucide = name;
-  icon.setAttribute('aria-hidden', 'true');
-  return icon;
-}
-
-const iframeElement = requireElement<HTMLIFrameElement>('#wp-playground');
-const questSelect = requireElement<HTMLSelectElement>('#quest-select');
-const phaseLabel = requireElement<HTMLElement>('#phase-label');
-const difficulty = requireElement<HTMLElement>('#difficulty');
-const challengeHeading = requireElement<HTMLElement>('#challenge-heading');
-const missionBrief = requireElement<HTMLElement>('#mission-brief');
-const targetUrl = requireElement<HTMLElement>('#target-url');
-const completionCondition = requireElement<HTMLElement>('#completion-condition');
-const editPluginLabel = requireElement<HTMLElement>('#edit-plugin-label');
-const editorLocation = requireElement<HTMLElement>('#editor-location');
-const runtimeTargetPath = requireElement<HTMLElement>('#runtime-target-path');
-const validateButton = requireElement<HTMLButtonElement>('#validate');
-const editPluginButton = requireElement<HTMLButtonElement>('#edit-plugin');
-const viewTargetButton = requireElement<HTMLButtonElement>('#view-target');
-const resetButton = requireElement<HTMLButtonElement>('#reset');
-const confirmResetButton = requireElement<HTMLButtonElement>('#confirm-reset');
-const resetDialog = requireElement<HTMLDialogElement>('#reset-dialog');
-const rebuildDialogTitle = requireElement<HTMLElement>('#rebuild-dialog-title');
-const rebuildDialogDescription = requireElement<HTMLElement>('#rebuild-dialog-description');
+const element = <T extends HTMLElement = HTMLElement>(id: string) => requireElement<T>(`#${id}`);
+const questSelect = element<HTMLSelectElement>('quest-select');
+const validateButton = element<HTMLButtonElement>('validate');
+const output = element('validation-output');
+const badge = element('result-badge');
+const resetDialog = element<HTMLDialogElement>('reset-dialog');
+const hintList = element<HTMLOListElement>('hint-list');
+const revealHintButton = element<HTMLButtonElement>('reveal-hint');
 const workspace = requireElement<HTMLElement>('.workspace');
-const runtimePane = requireElement<HTMLElement>('.runtime-pane');
-const missionPanel = requireElement<HTMLElement>('.mission-panel');
-const missionResizer = requireElement<HTMLElement>('#mission-resizer');
-const toggleMissionPanelButton = requireElement<HTMLButtonElement>('#toggle-mission-panel');
-const missionTabOverview = requireElement<HTMLButtonElement>('#mission-tab-overview');
-const missionTabResults = requireElement<HTMLButtonElement>('#mission-tab-results');
-const missionTabHints = requireElement<HTMLButtonElement>('#mission-tab-hints');
-const iframeShell = requireElement<HTMLElement>('#runtime-canvas');
-const toggleRuntimeFullscreenButton = requireElement<HTMLButtonElement>('#toggle-runtime-fullscreen');
-const exitRuntimeFullscreenButton = requireElement<HTMLButtonElement>('#exit-runtime-fullscreen');
-const successToast = requireElement<HTMLElement>('#success-toast');
-const successTitle = requireElement<HTMLElement>('#success-title');
-const successMessage = requireElement<HTMLElement>('#success-message');
-const successResetButton = requireElement<HTMLButtonElement>('#success-reset');
-const dismissSuccessButton = requireElement<HTMLButtonElement>('#dismiss-success');
-const runtimeStatus = requireElement<HTMLElement>('#runtime-status');
-const runtimeIndicator = requireElement<HTMLElement>('.runtime-indicator');
-const validationOutput = requireElement<HTMLElement>('#validation-output');
-const resultBadge = requireElement<HTMLElement>('#result-badge');
-const bootCover = requireElement<HTMLElement>('#boot-cover');
-const revealHintButton = requireElement<HTMLButtonElement>('#reveal-hint');
-const hintList = requireElement<HTMLOListElement>('#hint-list');
-const hintProgress = requireElement<HTMLElement>('#hint-progress');
-const copyQueryButton = requireElement<HTMLButtonElement>('#copy-query');
-const searchQuery = requireElement<HTMLElement>('#search-query');
-const researchClue = requireElement<HTMLElement>('.research-clue');
-const stepEnvironment = requireElement<HTMLLIElement>('#step-environment');
-const stepEvidence = requireElement<HTMLLIElement>('#step-evidence');
-const stepRepair = requireElement<HTMLLIElement>('#step-repair');
-const reviewSection = requireElement<HTMLElement>('#review-section');
-const reviewHeading = requireElement<HTMLElement>('#review-heading');
-const reviewBadge = requireElement<HTMLElement>('#review-badge');
-const reviewSummary = requireElement<HTMLElement>('#review-summary');
-const reviewNotes = requireElement<HTMLUListElement>('#review-notes');
-const advancedChallenge = requireElement<HTMLElement>('#advanced-challenge');
-const advancedTitle = requireElement<HTMLElement>('#advanced-title');
-const advancedDescription = requireElement<HTMLElement>('#advanced-description');
-const advancedWhy = requireElement<HTMLElement>('#advanced-why');
-const advancedSteps = requireElement<HTMLOListElement>('#advanced-steps');
-const advancedInstruction = requireElement<HTMLElement>('#advanced-instruction');
-const copyAdvancedInstructionButton = requireElement<HTMLButtonElement>('#copy-advanced-instruction');
-const startAdvancedButton = requireElement<HTMLButtonElement>('#start-advanced');
-const advancedActive = requireElement<HTMLElement>('#advanced-active');
-const advancedActiveTitle = requireElement<HTMLElement>('#advanced-active-title');
-const advancedActiveDescription = requireElement<HTMLElement>('#advanced-active-description');
-const advancedActiveWhy = requireElement<HTMLElement>('#advanced-active-why');
-const advancedActiveSteps = requireElement<HTMLOListElement>('#advanced-active-steps');
-const advancedActiveInstruction = requireElement<HTMLElement>('#advanced-active-instruction');
-const copyAdvancedActiveInstructionButton = requireElement<HTMLButtonElement>('#copy-advanced-active-instruction');
-
-let currentQuest = getQuest(new URL(window.location.href).searchParams.get('quest'));
-let iframe: HTMLIFrameElement = iframeElement;
-let client: PlaygroundClient | undefined;
-let bootPromise: Promise<void> | undefined;
+const layout = setupWorkspace();
+let currentQuest = getQuest(new URL(location.href).searchParams.get('quest'));
+let iframe = element<HTMLIFrameElement>('wp-playground');
 let revealedHints = 0;
 let advancedMode = false;
-let fallbackFullscreen = false;
-let missionPanelWidth = 420;
+let hasEditsRisk = false;
+let validationAttempt = 0;
 
-type MissionView = 'overview' | 'results' | 'hints';
-
-const MISSION_PANEL_STORAGE_KEY = 'seo-operator-lab:mission-panel-width';
-const MIN_MISSION_PANEL_WIDTH = 340;
-const MAX_MISSION_PANEL_WIDTH = 560;
-
-function getMissionPanelMaxWidth(): number {
-  return Math.max(MIN_MISSION_PANEL_WIDTH, Math.min(MAX_MISSION_PANEL_WIDTH, window.innerWidth - 520));
-}
-
-function persistMissionPanelWidth(): void {
-  try {
-    window.localStorage.setItem(MISSION_PANEL_STORAGE_KEY, String(missionPanelWidth));
-  } catch {
-    // Layout preferences remain session-only when storage is unavailable.
-  }
-}
-
-function setMissionPanelWidth(width: number, persist = false): void {
-  const maxWidth = getMissionPanelMaxWidth();
-  const nextWidth = Math.round(Math.min(maxWidth, Math.max(MIN_MISSION_PANEL_WIDTH, width)));
-  missionPanelWidth = nextWidth;
-  workspace.style.setProperty('--mission-panel-width', `${nextWidth}px`);
-  missionResizer.setAttribute('aria-valuemax', String(maxWidth));
-  missionResizer.setAttribute('aria-valuenow', String(nextWidth));
-  missionResizer.setAttribute('aria-valuetext', `${nextWidth} 像素`);
-  if (persist) persistMissionPanelWidth();
-}
-
-function restoreMissionPanelWidth(): void {
-  let storedWidth = 420;
-  try {
-    const stored = Number(window.localStorage.getItem(MISSION_PANEL_STORAGE_KEY));
-    if (Number.isFinite(stored) && stored > 0) storedWidth = stored;
-  } catch {
-    // Use the default width when storage is unavailable.
-  }
-  setMissionPanelWidth(storedWidth);
-}
-
-function setMissionView(view: MissionView): void {
-  workspace.dataset.missionView = view;
-  const tabs: Array<[MissionView, HTMLButtonElement]> = [
-    ['overview', missionTabOverview],
-    ['results', missionTabResults],
-    ['hints', missionTabHints],
-  ];
-  for (const [tabView, tab] of tabs) {
-    const selected = tabView === view;
-    tab.setAttribute('aria-selected', String(selected));
-    tab.tabIndex = selected ? 0 : -1;
-  }
-}
-
-function setMissionPanelCollapsed(collapsed: boolean): void {
-  workspace.dataset.sidebar = collapsed ? 'collapsed' : 'expanded';
-  document.body.dataset.missionPanel = collapsed ? 'collapsed' : 'expanded';
-  missionPanel.inert = collapsed;
-  missionPanel.setAttribute('aria-hidden', String(collapsed));
-  const resizerAvailable = !collapsed;
-  missionResizer.tabIndex = resizerAvailable ? 0 : -1;
-  missionResizer.setAttribute('aria-hidden', String(!resizerAvailable));
-  toggleMissionPanelButton.setAttribute('aria-expanded', String(!collapsed));
-  toggleMissionPanelButton.setAttribute('aria-label', `${collapsed ? '打开' : '收起'}任务检查器`);
-  toggleMissionPanelButton.title = `${collapsed ? '打开' : '收起'}任务检查器 ([)`;
-  const currentIcon = toggleMissionPanelButton.querySelector('svg, i');
-  const iconName = collapsed ? 'panel-right-open' : 'panel-right-close';
-  currentIcon?.replaceWith(createIcon(iconName));
-  refreshIcons(toggleMissionPanelButton);
-}
-
-function renderFullscreenState(active: boolean): void {
-  iframeShell.dataset.fullscreen = active ? (fallbackFullscreen ? 'fallback' : 'native') : 'false';
-  document.body.dataset.runtimeFullscreen = String(active);
-  toggleRuntimeFullscreenButton.setAttribute('aria-pressed', String(active));
-  toggleRuntimeFullscreenButton.setAttribute('aria-label', active ? '退出全屏' : '全屏显示运行环境');
-  toggleRuntimeFullscreenButton.title = active ? '退出全屏 (F)' : '全屏显示运行环境 (F)';
-  const currentIcon = toggleRuntimeFullscreenButton.querySelector('svg, i');
-  currentIcon?.replaceWith(createIcon(active ? 'minimize-2' : 'maximize-2'));
-  refreshIcons(toggleRuntimeFullscreenButton);
-}
-
-async function exitRuntimeFullscreen(): Promise<void> {
-  if (document.fullscreenElement === iframeShell) {
-    try {
-      await document.exitFullscreen();
-    } catch (error) {
-      setRuntimeStatus(`无法退出全屏：${error instanceof Error ? error.message : String(error)}`, 'error');
-    }
-    return;
-  }
-  if (fallbackFullscreen) {
-    fallbackFullscreen = false;
-    renderFullscreenState(false);
-    setRuntimeStatus('已退出全屏运行模式', 'ready');
-  }
-}
-
-async function toggleRuntimeFullscreen(): Promise<void> {
-  if (document.fullscreenElement === iframeShell || fallbackFullscreen) {
-    await exitRuntimeFullscreen();
-    return;
-  }
-
-  if (iframeShell.requestFullscreen && document.fullscreenEnabled) {
-    try {
-      await iframeShell.requestFullscreen({ navigationUI: 'hide' });
-      return;
-    } catch {
-      // Fall through to a viewport-sized mode when native fullscreen is unavailable.
-    }
-  }
-
-  fallbackFullscreen = true;
-  renderFullscreenState(true);
-  setRuntimeStatus('浏览器不支持原生全屏，已进入专注模式', 'ready');
-}
-
-type RuntimeState = 'booting' | 'ready' | 'validating' | 'resetting' | 'error';
-type ProgressStage = 'booting' | 'ready' | 'failed' | 'passed';
-type StepState = 'pending' | 'current' | 'done';
-
-type RebuildRequest =
-  | { kind: 'reset' }
-  | { kind: 'switch'; quest: QuestDefinition }
-  | { kind: 'advanced'; editorFile: string };
-
+type RebuildRequest = { kind: 'reset' } | { kind: 'switch'; quest: QuestDefinition } | { kind: 'advanced' };
 let pendingRebuild: RebuildRequest | undefined;
 
-function setRuntimeStatus(message: string, state: RuntimeState): void {
-  runtimeStatus.textContent = message;
-  runtimeStatus.dataset.state = state;
-  runtimeIndicator.dataset.state = state;
+function setStatus(message: string, state: string): void {
+  const status = element('runtime-status');
+  status.textContent = message;
+  status.title = message;
+  status.dataset.state = state;
+  requireElement<HTMLElement>('.runtime-indicator').dataset.state = state;
 }
 
-function setProgress(stage: ProgressStage): void {
-  const states: Record<ProgressStage, [StepState, StepState, StepState]> = {
+function setControls(): void {
+  for (const id of ['validate', 'edit-plugin', 'view-target', 'solution-open-editor', 'hint-open-editor', 'start-advanced']) {
+    const button = document.getElementById(id) as HTMLButtonElement | null;
+    if (button) button.disabled = !runtime.available;
+  }
+}
+
+function setProgress(stage: 'booting' | 'ready' | 'failed' | 'passed'): void {
+  const states = {
     booting: ['current', 'pending', 'pending'],
     ready: ['done', 'current', 'pending'],
     failed: ['done', 'done', 'current'],
     passed: ['done', 'done', 'done'],
   };
-  const [environment, evidence, repair] = states[stage];
-  stepEnvironment.dataset.state = environment;
-  stepEvidence.dataset.state = evidence;
-  stepRepair.dataset.state = repair;
+  ['environment', 'evidence', 'repair'].forEach((step, index) => {
+    element(`step-${step}`).dataset.state = states[stage][index];
+  });
 }
 
-function setBootCover(
-  visible: boolean,
-  title = `正在创建 WordPress ${currentQuest.metadata.environment.wordpress}`,
-  detail = '首次启动通常需要 30–90 秒',
-  state: 'loading' | 'error' = 'loading',
-): void {
-  bootCover.classList.toggle('is-hidden', !visible);
-  bootCover.setAttribute('aria-hidden', String(!visible));
-  bootCover.dataset.state = state;
-  const currentIcon = bootCover.querySelector('svg, i');
-  currentIcon?.replaceWith(createIcon(state === 'error' ? 'triangle-alert' : 'loader-circle'));
-  const heading = bootCover.querySelector('strong');
-  const note = bootCover.querySelector('span');
-  if (heading) heading.textContent = title;
-  if (note) note.textContent = detail;
-  refreshIcons(bootCover);
+function bootCover(visible: boolean, error?: string): void {
+  const cover = element('boot-cover');
+  cover.hidden = !visible;
+  cover.dataset.state = error ? 'error' : 'loading';
+  cover.querySelector('strong')!.textContent = error ? '环境启动失败，可手动重试' : `正在创建 WordPress ${currentQuest.metadata.environment.wordpress}`;
+  cover.querySelector('span')!.textContent = error ?? '首次启动通常需要 30–90 秒。可以先读任务或操作指引。';
+  element('retry-runtime').hidden = !error;
+  replaceIcon(cover, error ? 'triangle-alert' : 'loader-circle');
 }
 
-function setRuntimeControls(disabled: boolean): void {
-  validateButton.disabled = disabled;
-  editPluginButton.disabled = disabled;
-  viewTargetButton.disabled = disabled;
-  questSelect.disabled = disabled;
-}
+const runtime = new RuntimeSession({
+  replaceFrame: () => {
+    const next = iframe.cloneNode(false) as HTMLIFrameElement;
+    // Never clone the old scoped URL: it could start a second obsolete boot.
+    next.removeAttribute('src');
+    iframe.replaceWith(next);
+    iframe = next;
+    return iframe;
+  },
+  onState: (state) => {
+    setControls();
+    questSelect.disabled = state === 'booting' || state === 'validating' || state === 'navigating';
+    validateButton.classList.toggle('is-loading', state === 'validating');
+    validateButton.querySelector('span')!.textContent = state === 'validating' ? '验证中…' : '① 运行验证';
+    if (state !== 'error') element('runtime-error').hidden = true;
+    if (state === 'booting') {
+      bootCover(true);
+      setProgress('booting');
+      setStatus('正在创建临时 WordPress，首次可能需要 30–90 秒', state);
+    } else if (state === 'validating') {
+      setStatus('正在读取目标页与回归证据', state);
+    } else if (state === 'navigating') {
+      setStatus('正在打开运行环境中的页面', state);
+    }
+  },
+  onError: (message, operation) => {
+    setStatus(message, 'error');
+    element('runtime-error').hidden = false;
+    element('runtime-error').textContent = message;
+    if (operation === 'booting') bootCover(true, message);
+    if (operation === 'validating') {
+      output.dataset.result = 'error';
+      badge.dataset.result = 'error';
+      badge.textContent = '未完成';
+      output.replaceChildren(messageNode('验证未完成，不是通过或未通过', message));
+      layout.open('results');
+    }
+  },
+  onNavigation: (url) => {
+    if (/\/(?:plugin-editor|theme-editor|post|post-new|site-editor)\.php(?:[?#]|$)/.test(url)) {
+      markResultStale();
+      hasEditsRisk = true;
+      layout.focusRuntime();
+    }
+  },
+});
 
-function hideReview(): void {
-  reviewSection.hidden = true;
-  advancedChallenge.hidden = true;
+function messageNode(title: string, text: string): HTMLElement {
+  const node = document.createElement('div');
+  node.className = 'validation-summary';
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  const note = document.createElement('p');
+  note.textContent = text;
+  node.append(heading, note);
+  return node;
 }
 
 function renderIdleValidation(): void {
+  ++validationAttempt;
   workspace.dataset.result = 'idle';
-  successToast.dataset.visible = 'false';
-  validationOutput.dataset.result = 'idle';
-  delete validationOutput.dataset.outcome;
-  resultBadge.dataset.result = 'idle';
-  resultBadge.textContent = '未运行';
-  hideReview();
-  validationOutput.replaceChildren();
-  const empty = document.createElement('div');
-  empty.className = 'empty-state';
-  empty.append(createIcon('scan-search'));
-  const message = document.createElement('p');
-  message.textContent = '先运行一次验证，建立故障基线。';
-  empty.append(message);
-  validationOutput.append(empty);
-  refreshIcons(validationOutput);
+  element('success-toast').dataset.visible = 'false';
+  element('validation-staleness').hidden = true;
+  output.dataset.result = 'idle';
+  delete output.dataset.outcome;
+  badge.dataset.result = 'idle';
+  badge.textContent = '未运行';
+  element('review-section').hidden = true;
+  element('advanced-challenge').hidden = true;
+  output.replaceChildren(messageNode('先建立故障基线', '点击顶部绿色「① 运行验证」。初始未通过是题目故意设置的，不是你操作错了。'));
+}
+
+function markResultStale(): void {
+  if (output.dataset.result !== 'idle') element('validation-staleness').hidden = false;
+  element('success-toast').dataset.visible = 'false';
+  workspace.dataset.result = 'idle';
+}
+
+function renderList(id: string, values: string[]): void {
+  element(id).replaceChildren(...values.map((value) => {
+    const item = document.createElement('li');
+    item.textContent = value;
+    return item;
+  }));
+}
+
+function renderAdvanced(prefix: string, challenge: AdvancedChallenge): void {
+  element(`${prefix}-title`).textContent = challenge.title;
+  element(`${prefix}-description`).textContent = challenge.description;
+  element(`${prefix}-why`).textContent = challenge.why ?? '';
+  renderList(`${prefix}-steps`, challenge.steps ?? []);
+  element(`${prefix}-instruction`).textContent = challenge.instruction;
+}
+
+function renderReview(result: ValidationResult): void {
+  const section = element('review-section');
+  section.hidden = !result.passed || !result.review;
+  if (section.hidden || !result.review) return;
+  const review = currentQuest.metadata.postPassReview;
+  element('review-heading').textContent = review.title;
+  element('review-badge').textContent = result.review.label;
+  element('review-badge').dataset.level = result.review.level;
+  element('review-summary').textContent = result.review.summary;
+  renderList('review-notes', review.notes);
+  const challenge = review.advancedChallenge;
+  const show = Boolean(challenge && result.review.level !== 'production');
+  element('advanced-challenge').hidden = !show;
+  if (show && challenge) {
+    renderAdvanced('advanced', challenge);
+    element('start-advanced').querySelector('span')!.textContent = challenge.buttonLabel;
+  }
 }
 
 function appendEvidence(details: HTMLDetailsElement, check: ValidationCheck): void {
   const evidence = document.createElement('dl');
   evidence.className = 'check-evidence';
-  const expectedLabel = document.createElement('dt');
-  expectedLabel.textContent = '期望';
-  const expectedValue = document.createElement('dd');
-  expectedValue.dataset.value = 'expected';
-  expectedValue.textContent = check.expected;
-  const actualLabel = document.createElement('dt');
-  actualLabel.textContent = '实际';
-  const actualValue = document.createElement('dd');
-  actualValue.dataset.value = 'actual';
-  actualValue.textContent = check.actual;
-  evidence.append(expectedLabel, expectedValue, actualLabel, actualValue);
-  if (check.details) {
-    const detailsLabel = document.createElement('dt');
-    detailsLabel.textContent = '说明';
-    const detailsValue = document.createElement('dd');
-    detailsValue.textContent = check.details;
-    evidence.append(detailsLabel, detailsValue);
+  const values = [['期望', check.expected, 'expected'], ['实际', check.actual, 'actual']];
+  if (check.details) values.push(['说明', check.details, 'details']);
+  for (const [label, value, kind] of values) {
+    const term = document.createElement('dt');
+    term.textContent = label;
+    const description = document.createElement('dd');
+    description.dataset.value = kind;
+    // Evidence comes from editable PHP/HTML. Never insert it as markup.
+    description.textContent = value;
+    evidence.append(term, description);
   }
   details.append(evidence);
 }
 
-function renderAdvancedGuide(
-  advanced: AdvancedChallenge,
-  why: HTMLElement,
-  steps: HTMLOListElement,
-  instruction: HTMLElement,
-): void {
-  why.textContent = advanced.why ?? '';
-  why.hidden = !advanced.why;
-  steps.replaceChildren(
-    ...(advanced.steps ?? []).map((step) => {
-      const item = document.createElement('li');
-      item.textContent = step;
-      return item;
-    }),
-  );
-  steps.hidden = !advanced.steps?.length;
-  instruction.textContent = advanced.instruction;
-}
-
-function renderReview(result: ValidationResult): void {
-  if (!result.passed || !result.review) {
-    hideReview();
-    return;
-  }
-  const metadata = currentQuest.metadata;
-  reviewSection.hidden = false;
-  reviewHeading.textContent = metadata.postPassReview.title;
-  reviewBadge.textContent = result.review.label;
-  reviewBadge.dataset.level = result.review.level;
-  reviewSummary.textContent = result.review.summary;
-  reviewNotes.replaceChildren(
-    ...metadata.postPassReview.notes.map((note) => {
-      const item = document.createElement('li');
-      item.textContent = note;
-      return item;
-    }),
-  );
-
-  const advanced = metadata.postPassReview.advancedChallenge;
-  const showAdvanced = Boolean(advanced && result.review.level !== 'production');
-  advancedChallenge.hidden = !showAdvanced;
-  if (advanced && showAdvanced) {
-    advancedTitle.textContent = advanced.title;
-    advancedDescription.textContent = advanced.description;
-    renderAdvancedGuide(advanced, advancedWhy, advancedSteps, advancedInstruction);
-    const label = startAdvancedButton.querySelector('span');
-    if (label) label.textContent = advanced.buttonLabel;
-  }
-  refreshIcons(reviewSection);
-}
-
 function renderValidation(result: ValidationResult): void {
-  const resultState = result.passed ? 'pass' : 'fail';
+  const state = result.passed ? 'pass' : 'fail';
   const regressionFailed = result.targetPassed && !result.passed;
-  validationOutput.dataset.result = resultState;
-  validationOutput.dataset.outcome = regressionFailed ? 'regression' : resultState;
-  workspace.dataset.result = resultState;
-  successToast.dataset.visible = String(result.passed);
-  resultBadge.dataset.result = resultState;
-  resultBadge.textContent = result.passed ? '通过' : regressionFailed ? '回归失败' : '未通过';
-  validationOutput.replaceChildren();
-
-  const summary = document.createElement('div');
-  summary.className = 'validation-summary';
-  summary.append(createIcon(result.passed ? 'circle-check' : 'circle-x'));
-  const summaryCopy = document.createElement('div');
-  const summaryTitle = document.createElement('strong');
-  summaryTitle.textContent = result.passed
-    ? '目标与回归检查均通过'
-    : regressionFailed
-      ? '目标已修复，但产生了副作用'
-      : '目标检查仍有失败项';
-  const summaryNote = document.createElement('span');
-  summaryNote.textContent = result.passed
-    ? '当前实现满足本题全部确定性条件。'
-    : regressionFailed
-      ? '不要只看症状消失；阅读回归证据并收窄修改范围。'
-      : '先阅读失败项的证据，再决定下一次修改。';
-  summaryCopy.append(summaryTitle, summaryNote);
-  summary.append(summaryCopy);
-
+  output.dataset.result = state;
+  output.dataset.outcome = regressionFailed ? 'regression' : state;
+  workspace.dataset.result = state;
+  badge.dataset.result = state;
+  badge.textContent = result.passed ? '通过' : regressionFailed ? '回归失败' : '未通过';
+  element('validation-staleness').hidden = true;
+  element('success-toast').dataset.visible = String(result.passed);
+  output.replaceChildren(messageNode(
+    result.passed ? '目标与回归均通过' : regressionFailed ? '目标已修复，但产生了副作用' : '还有目标检查需要处理',
+    result.passed ? '这是本次实验的检查结果，不是生产部署或实际搜索收录保证。' : '失败项已展开。先比较期望与实际，再用「提示」页定位修改。',
+  ));
   const checks = document.createElement('ol');
   checks.className = 'validation-checks';
   for (const group of ['target', 'regression'] as const) {
-    const groupChecks = result.checks.filter((check) => check.group === group);
-    if (!groupChecks.length) continue;
-    const groupLabel = document.createElement('li');
-    groupLabel.className = 'validation-group-label';
-    groupLabel.dataset.group = group;
-    groupLabel.textContent = group === 'target' ? '目标检查' : '回归检查';
-    checks.append(groupLabel);
-
-    for (const check of groupChecks) {
+    const label = document.createElement('li');
+    label.className = 'validation-group-label';
+    label.dataset.group = group;
+    label.textContent = group === 'target' ? '目标检查 · 症状是否消失' : '回归检查 · 是否误伤其他行为';
+    checks.append(label);
+    for (const check of result.checks.filter((item) => item.group === group)) {
       const row = document.createElement('li');
       row.className = 'validation-check';
       row.dataset.checkId = check.id;
       row.dataset.checkGroup = check.group;
       row.dataset.passed = String(check.passed);
       const details = document.createElement('details');
+      details.open = !check.passed;
       const summary = document.createElement('summary');
       summary.className = 'check-summary';
       summary.append(createIcon(check.passed ? 'check' : 'circle-x'));
-      const copy = document.createElement('div');
-      copy.className = 'check-copy';
       const name = document.createElement('strong');
+      name.className = 'check-copy';
       name.textContent = check.name;
-      const state = document.createElement('span');
-      state.textContent = check.passed ? '符合预期' : '需要处理';
-      copy.append(name, state);
-      const evidenceToggle = document.createElement('span');
-      evidenceToggle.className = 'evidence-toggle';
-      evidenceToggle.append(document.createTextNode('查看证据'), createIcon('chevron-down'));
-      summary.append(copy, evidenceToggle);
+      const toggle = document.createElement('span');
+      toggle.className = 'evidence-toggle';
+      toggle.append(document.createTextNode('证据'), createIcon('chevron-down'));
+      summary.append(name, toggle);
       details.append(summary);
       appendEvidence(details, check);
       row.append(details);
       checks.append(row);
     }
   }
-
-  validationOutput.append(summary, checks);
+  output.append(checks);
   renderReview(result);
-  refreshIcons(validationOutput);
+  refreshIcons(output);
 }
 
 function resetHints(): void {
   revealedHints = 0;
   hintList.replaceChildren();
-  hintProgress.textContent = `0 / ${currentQuest.metadata.hints.length}`;
+  element('hint-progress').textContent = `0 / ${currentQuest.metadata.hints.length}`;
   revealHintButton.disabled = false;
-  const label = revealHintButton.querySelector('span');
-  if (label) label.textContent = '显示第一条提示';
+  revealHintButton.querySelector('span')!.textContent = '显示第一条提示';
+  element<HTMLDetailsElement>('solution-guide').open = false;
 }
 
 function addNextHint(): void {
   const hints = currentQuest.metadata.hints;
-  if (revealedHints >= hints.length) return;
   const hint = hints[revealedHints];
-  revealedHints += 1;
-
+  if (!hint) return;
+  ++revealedHints;
   const item = document.createElement('li');
   item.className = 'hint-item';
-  const number = document.createElement('span');
-  number.className = 'hint-number';
-  number.textContent = String(hint.level);
-  const content = document.createElement('div');
   const title = document.createElement('strong');
-  title.textContent = hint.title;
-  const body = document.createElement('p');
-  body.textContent = hint.text;
-  content.append(title, body);
-
-  if (hint.href && hint.linkLabel) {
+  title.textContent = `${hint.level}. ${hint.title}`;
+  const text = document.createElement('p');
+  text.textContent = hint.text;
+  item.append(title, text);
+  if (hint.href && hint.linkLabel && new URL(hint.href).protocol === 'https:') {
     const link = document.createElement('a');
     link.href = hint.href;
     link.target = '_blank';
-    link.rel = 'noreferrer';
+    link.rel = 'noopener noreferrer';
     link.append(document.createTextNode(hint.linkLabel), createIcon('external-link'));
-    content.append(link);
+    item.append(link);
   }
-
   if (hint.action === 'open-editor') {
     const action = document.createElement('button');
     action.id = 'hint-open-editor';
-    action.className = 'button hint-action';
+    action.className = 'button button-secondary';
     action.type = 'button';
-    action.append(createIcon('wrench'));
-    const label = document.createElement('span');
-    label.textContent = currentQuest.metadata.editor.label;
-    action.append(label);
+    action.textContent = currentQuest.metadata.editor.label;
+    action.disabled = !runtime.available;
     action.addEventListener('click', () => void openPluginEditor(currentQuest.metadata.editor.file));
-    content.append(action);
+    item.append(action);
   }
-
-  item.append(number, content);
   hintList.append(item);
-  hintProgress.textContent = `${revealedHints} / ${hints.length}`;
-  const label = revealHintButton.querySelector('span');
-  if (revealedHints === hints.length) {
-    revealHintButton.disabled = true;
-    if (label) label.textContent = '已显示全部提示';
-  } else if (label) {
-    label.textContent = `显示第 ${revealedHints + 1} 条提示`;
-  }
+  element('hint-progress').textContent = `${revealedHints} / ${hints.length}`;
+  revealHintButton.disabled = revealedHints === hints.length;
+  revealHintButton.querySelector('span')!.textContent = revealedHints === hints.length ? '已显示全部提示' : `显示第 ${revealedHints + 1} 条提示`;
   refreshIcons(item);
 }
 
 function renderQuest(): void {
   const metadata = currentQuest.metadata;
-  phaseLabel.textContent = `Phase B · Quest ${String(metadata.sequence).padStart(2, '0')}`;
-  difficulty.textContent = `难度 ${metadata.difficulty} / 5`;
-  difficulty.setAttribute('aria-label', `难度 ${metadata.difficulty} 星`);
-  challengeHeading.textContent = metadata.title;
-  missionBrief.textContent = metadata.description;
-  targetUrl.textContent = metadata.target.url;
-  completionCondition.textContent = metadata.objective.completion;
-  editPluginLabel.textContent = metadata.editor.label;
-  editorLocation.textContent = metadata.editor.location;
-  runtimeTargetPath.textContent = metadata.target.url;
-  searchQuery.textContent = metadata.searchQuery;
-  successTitle.textContent = metadata.success.title;
-  successMessage.textContent = metadata.success.message;
+  advancedMode = false;
+  element('advanced-active').hidden = true;
+  element('phase-label').textContent = `关卡 ${String(metadata.sequence).padStart(2, '0')}`;
+  element('difficulty').textContent = `难度 ${metadata.difficulty} / 5`;
+  element('challenge-heading').textContent = metadata.title;
+  element('mission-brief').textContent = metadata.description;
+  element('target-url').textContent = metadata.target.url;
+  element('completion-condition').textContent = metadata.objective.completion;
+  element('editor-location').textContent = metadata.editor.location;
+  element('edit-plugin').title = `${metadata.editor.label}：${metadata.editor.file}`;
+  element('runtime-target-path').textContent = metadata.target.url;
+  element('search-query').textContent = metadata.searchQuery;
+  element('success-title').textContent = metadata.success.title;
+  element('success-message').textContent = metadata.success.message;
+  element('solution-concept').textContent = metadata.walkthrough.concept;
+  renderList('solution-steps', metadata.walkthrough.steps);
+  element('solution-before').textContent = metadata.walkthrough.before;
+  element('solution-after').textContent = metadata.walkthrough.after;
+  element('solution-caution').textContent = metadata.walkthrough.caution;
   document.title = `${metadata.title} | SEO Operator Lab`;
   questSelect.value = metadata.id;
-  advancedActive.hidden = true;
-  advancedMode = false;
-  setMissionView('overview');
+  layout.setView('overview');
   resetHints();
   renderIdleValidation();
-
-  const url = new URL(window.location.href);
+  const url = new URL(location.href);
   url.searchParams.set('quest', metadata.id);
-  window.history.replaceState({}, '', url);
-}
-
-async function boot(): Promise<void> {
-  if (bootPromise) return bootPromise;
-  bootPromise = (async () => {
-    setRuntimeControls(true);
-    setRuntimeStatus(`正在准备「${currentQuest.metadata.title}」`, 'booting');
-    setProgress('booting');
-    setBootCover(true);
-    renderIdleValidation();
-    const { startPlaygroundWeb } = await import('@wp-playground/client');
-    client = await startPlaygroundWeb({
-      iframe,
-      remoteUrl: 'https://playground.wordpress.net/remote.html',
-      blueprint: currentQuest.blueprint,
-    });
-    setRuntimeControls(false);
-    setBootCover(false);
-    setProgress('ready');
-    setRuntimeStatus(`${currentQuest.metadata.title}环境已就绪`, 'ready');
-  })();
-
-  try {
-    await bootPromise;
-  } catch (error) {
-    bootPromise = undefined;
-    setRuntimeControls(true);
-    setRuntimeStatus('环境启动失败', 'error');
-    setBootCover(true, '环境启动失败', error instanceof Error ? error.message : String(error), 'error');
-    throw error;
-  }
+  history.replaceState({}, '', url);
 }
 
 async function runValidation(): Promise<void> {
-  if (!client) return;
-  validateButton.disabled = true;
-  validateButton.classList.add('is-loading');
-  const buttonLabel = validateButton.querySelector('span');
-  if (buttonLabel) buttonLabel.textContent = '验证中';
-  setRuntimeStatus('正在运行目标与回归检查', 'validating');
-  try {
-    const result = await currentQuest.validate(client);
-    renderValidation(result);
-    setMissionPanelCollapsed(false);
-    setMissionView('results');
-    setProgress(result.passed ? 'passed' : 'failed');
-    setRuntimeStatus(
-      result.passed
-        ? '验证通过；实现复盘已生成'
-        : result.targetPassed
-          ? '目标已修复，但回归检查失败'
-          : '验证未通过，请根据证据继续定位',
-      'ready',
-    );
-  } catch (error) {
-    setRuntimeStatus(`验证失败：${error instanceof Error ? error.message : String(error)}`, 'error');
-  } finally {
-    validateButton.disabled = false;
-    validateButton.classList.remove('is-loading');
-    if (buttonLabel) buttonLabel.textContent = '再次验证';
-  }
-}
-
-function scrollRuntimeIntoView(): void {
-  if (window.matchMedia('(max-width: 900px)').matches) {
-    runtimePane.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-function pluginEditorUrl(file: string): string {
-  const params = new URLSearchParams({ file, plugin: file });
-  return `/wp-admin/plugin-editor.php?${params.toString()}`;
+  if (!runtime.available) return;
+  const attempt = ++validationAttempt;
+  element('success-toast').dataset.visible = 'false';
+  element('review-section').hidden = true;
+  element('validation-staleness').hidden = true;
+  workspace.dataset.result = 'idle';
+  output.dataset.result = 'pending';
+  badge.dataset.result = 'idle';
+  badge.textContent = '验证中';
+  output.replaceChildren(messageNode('正在检查…', '验证不会修改你的代码。'));
+  layout.open('results');
+  const quest = currentQuest;
+  const result = await runtime.execute('validating', (client) => quest.validate(client));
+  if (!result || attempt !== validationAttempt) return;
+  renderValidation(result);
+  setProgress(result.passed ? 'passed' : 'failed');
+  setStatus(result.passed ? '本次验证通过；请阅读实现复盘' : result.targetPassed ? '症状已消失，但回归检查失败' : '验证未通过，失败项证据已展开', 'ready');
 }
 
 async function openPluginEditor(file: string): Promise<void> {
-  if (!client) return;
-  setMissionPanelCollapsed(false);
-  setMissionView('overview');
-  try {
-    await client.goTo(pluginEditorUrl(file));
-    setRuntimeStatus('已打开插件文件，修改后返回验证', 'ready');
-    scrollRuntimeIntoView();
-  } catch (error) {
-    setRuntimeStatus(`无法打开插件编辑器：${error instanceof Error ? error.message : String(error)}`, 'error');
+  if (!runtime.available) return;
+  const params = new URLSearchParams({ file, plugin: file });
+  markResultStale();
+  layout.focusRuntime();
+  const navigated = await runtime.execute('navigating', async (client) => {
+    await client.goTo(`/wp-admin/plugin-editor.php?${params}`);
+    return true;
+  });
+  if (navigated) {
+    hasEditsRisk = true;
+    setStatus('编辑后点击 WordPress 的 Update File，再用顶部按钮验证', 'ready');
   }
 }
 
 async function viewTarget(): Promise<void> {
-  if (!client) return;
-  try {
-    await client.goTo(currentQuest.metadata.target.url);
-    setRuntimeStatus('正在查看目标页面', 'ready');
-    scrollRuntimeIntoView();
-  } catch (error) {
-    setRuntimeStatus(`无法打开目标页面：${error instanceof Error ? error.message : String(error)}`, 'error');
-  }
+  if (!runtime.available) return;
+  layout.focusRuntime();
+  const target = currentQuest.metadata.target.url;
+  const navigated = await runtime.execute('navigating', async (client) => { await client.goTo(target); return true; });
+  if (navigated) setStatus('正在查看目标页；顶部按钮可返回编辑或验证', 'ready');
 }
 
 function requestRebuild(request: RebuildRequest): void {
+  if (resetDialog.open) return;
   pendingRebuild = request;
   resetDialog.returnValue = '';
   if (request.kind === 'switch') {
-    rebuildDialogTitle.textContent = `切换到「${request.quest.metadata.title}」？`;
-    rebuildDialogDescription.textContent = '当前 Playground 的所有修改会被丢弃，并按新 Quest 的 Blueprint 重建。';
-    confirmResetButton.textContent = '确认切换';
+    element('rebuild-dialog-title').textContent = `切换到「${request.quest.metadata.title}」？`;
+    element('rebuild-dialog-description').textContent = '当前 WordPress 的所有修改会被丢弃，并创建新关卡。需要保留的代码请先复制。';
+    element('confirm-reset').textContent = '确认切换';
   } else if (request.kind === 'advanced') {
-    rebuildDialogTitle.textContent = '开始生产级改进？';
-    rebuildDialogDescription.textContent = '当前实验修复会被重置。新环境就绪后将自动打开站点自有的 Site Overrides 插件。';
-    confirmResetButton.textContent = '重置并继续';
+    element('rebuild-dialog-title').textContent = '开始站点自有的生产修复路径？';
+    element('rebuild-dialog-description').textContent = '当前实验修复会被重置。新环境就绪后自动打开 Site Overrides 插件。这仍是练习，不会部署到任何真实站点。';
+    element('confirm-reset').textContent = '重置并继续';
   } else {
-    rebuildDialogTitle.textContent = '重置当前环境？';
-    rebuildDialogDescription.textContent = '所有运行时修改会被丢弃，Blueprint 会重新创建这道 Quest 的初始故障。';
-    confirmResetButton.textContent = '确认重置';
+    element('rebuild-dialog-title').textContent = '重置当前环境？';
+    element('rebuild-dialog-description').textContent = '所有运行时修改会被丢弃，恢复本关初始故障。需要保留的代码请先复制；提示和布局偏好不受影响。';
+    element('confirm-reset').textContent = '确认重置';
   }
   resetDialog.showModal();
 }
 
-function showAdvancedMode(): void {
-  const advanced = currentQuest.metadata.postPassReview.advancedChallenge;
-  if (!advanced) return;
-  advancedMode = true;
-  advancedActive.hidden = false;
-  advancedActiveTitle.textContent = `${advanced.title}进行中`;
-  advancedActiveDescription.textContent = advanced.description;
-  renderAdvancedGuide(advanced, advancedActiveWhy, advancedActiveSteps, advancedActiveInstruction);
-  refreshIcons(advancedActive);
-}
-
 async function rebuild(request: RebuildRequest): Promise<void> {
-  resetButton.disabled = true;
-  setRuntimeControls(true);
-  successToast.dataset.visible = 'false';
+  hasEditsRisk = false;
+  renderIdleValidation();
   if (request.kind === 'switch') {
     currentQuest = request.quest;
     renderQuest();
-  } else if (request.kind === 'advanced') {
-    showAdvancedMode();
-  } else {
-    advancedMode = false;
-    advancedActive.hidden = true;
-    setMissionPanelCollapsed(false);
-    setMissionView('overview');
   }
-  setRuntimeStatus('正在重建 Quest 环境', 'resetting');
-  setProgress('booting');
-  setBootCover(true, '正在重置 WordPress', '所有运行时修改都会被丢弃');
-  try {
-    client = undefined;
-    bootPromise = undefined;
-    const nextIframe = iframe.cloneNode(false) as HTMLIFrameElement;
-    iframe.replaceWith(nextIframe);
-    iframe = nextIframe;
-    await boot();
-    if (request.kind === 'advanced') await openPluginEditor(request.editorFile);
-  } catch {
-    // boot() writes the actionable error to the status and cover.
-  } finally {
-    resetButton.disabled = false;
-  }
+  advancedMode = request.kind === 'advanced';
+  element('advanced-active').hidden = !advancedMode;
+  const advanced = currentQuest.metadata.postPassReview.advancedChallenge;
+  if (advancedMode && advanced) renderAdvanced('advanced-active', advanced);
+  const activeFile = advancedMode && advanced ? advanced.editorFile : currentQuest.metadata.editor.file;
+  element('edit-plugin').title = `编辑本关文件：${activeFile}`;
+  element('editor-location').textContent = advancedMode && advanced
+    ? `当前生产路径：${activeFile}。在现有 init 回调内添加代码，点击编辑框下方 Update File 保存。`
+    : currentQuest.metadata.editor.location;
+  layout.open('overview');
+  if (!(await runtime.boot(currentQuest))) return;
+  bootCover(false);
+  setProgress('ready');
+  setStatus('环境已就绪；先点顶部「① 运行验证」', 'ready');
+  if (advancedMode && advanced) await openPluginEditor(advanced.editorFile);
 }
 
 for (const quest of quests) {
@@ -744,173 +414,51 @@ for (const quest of quests) {
   option.textContent = `${String(quest.metadata.sequence).padStart(2, '0')} · ${quest.metadata.title}`;
   questSelect.append(option);
 }
-
 questSelect.addEventListener('change', () => {
-  const nextQuest = getQuest(questSelect.value);
-  if (nextQuest.metadata.id === currentQuest.metadata.id) return;
-  requestRebuild({ kind: 'switch', quest: nextQuest });
+  const next = getQuest(questSelect.value);
+  questSelect.value = currentQuest.metadata.id;
+  if (next !== currentQuest) requestRebuild({ kind: 'switch', quest: next });
 });
-
-resetDialog.addEventListener('close', () => {
-  if (resetDialog.returnValue !== 'confirm') questSelect.value = currentQuest.metadata.id;
-  pendingRebuild = undefined;
-});
-
-confirmResetButton.addEventListener('click', () => {
+resetDialog.addEventListener('close', () => { pendingRebuild = undefined; });
+element('confirm-reset').addEventListener('click', () => {
   const request = pendingRebuild;
   if (!request) return;
   pendingRebuild = undefined;
   resetDialog.close('confirm');
   void rebuild(request);
 });
-
 validateButton.addEventListener('click', () => void runValidation());
-editPluginButton.addEventListener('click', () => void openPluginEditor(currentQuest.metadata.editor.file));
-viewTargetButton.addEventListener('click', () => void viewTarget());
-missionTabOverview.addEventListener('click', () => setMissionView('overview'));
-missionTabResults.addEventListener('click', () => setMissionView('results'));
-missionTabHints.addEventListener('click', () => setMissionView('hints'));
-toggleMissionPanelButton.addEventListener('click', () => {
-  setMissionPanelCollapsed(workspace.dataset.sidebar !== 'collapsed');
-});
-
-let resizePointerId: number | undefined;
-missionResizer.addEventListener('pointerdown', (event) => {
-  if (event.button !== 0 || window.matchMedia('(max-width: 900px)').matches) return;
-  resizePointerId = event.pointerId;
-  missionResizer.setPointerCapture(event.pointerId);
-  document.body.classList.add('is-resizing-mission-panel');
-});
-missionResizer.addEventListener('pointermove', (event) => {
-  if (resizePointerId !== event.pointerId) return;
-  const workspaceBounds = workspace.getBoundingClientRect();
-  setMissionPanelWidth(workspaceBounds.right - event.clientX);
-});
-const finishMissionPanelResize = (event: PointerEvent): void => {
-  if (resizePointerId !== event.pointerId) return;
-  if (missionResizer.hasPointerCapture(event.pointerId)) missionResizer.releasePointerCapture(event.pointerId);
-  resizePointerId = undefined;
-  document.body.classList.remove('is-resizing-mission-panel');
-  persistMissionPanelWidth();
-};
-missionResizer.addEventListener('pointerup', finishMissionPanelResize);
-missionResizer.addEventListener('pointercancel', finishMissionPanelResize);
-missionResizer.addEventListener('keydown', (event) => {
-  const nextWidth: Partial<Record<string, number>> = {
-    ArrowLeft: missionPanelWidth + 16,
-    ArrowRight: missionPanelWidth - 16,
-    Home: getMissionPanelMaxWidth(),
-    End: MIN_MISSION_PANEL_WIDTH,
-  };
-  const nextValue = nextWidth[event.key];
-  if (nextValue === undefined) return;
-  event.preventDefault();
-  setMissionPanelWidth(nextValue, true);
-});
-toggleRuntimeFullscreenButton.addEventListener('click', () => void toggleRuntimeFullscreen());
-exitRuntimeFullscreenButton.addEventListener('click', () => void exitRuntimeFullscreen());
-document.addEventListener('fullscreenchange', () => {
-  const active = document.fullscreenElement === iframeShell;
-  if (active) fallbackFullscreen = false;
-  renderFullscreenState(active || fallbackFullscreen);
-  setRuntimeStatus(active ? '运行环境已进入全屏模式' : '已退出全屏运行模式', 'ready');
-});
-window.matchMedia('(max-width: 900px)').addEventListener('change', (event) => {
-  if (event.matches) setMissionPanelCollapsed(false);
-  else {
-    restoreMissionPanelWidth();
-    setMissionPanelCollapsed(false);
-  }
-});
-window.addEventListener('resize', () => {
-  if (window.matchMedia('(max-width: 900px)').matches) return;
-  setMissionPanelWidth(missionPanelWidth);
-});
-document.addEventListener('keydown', (event) => {
-  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || resetDialog.open) return;
-  const target = event.target;
-  if (
-    target instanceof Element &&
-    target.closest('input, textarea, select, [contenteditable="true"], [role="textbox"]')
-  ) {
-    return;
-  }
-
-  if (event.key.toLowerCase() === 'f') {
-    event.preventDefault();
-    void toggleRuntimeFullscreen();
-  } else if (event.key === '[' && !window.matchMedia('(max-width: 900px)').matches) {
-    event.preventDefault();
-    setMissionPanelCollapsed(workspace.dataset.sidebar !== 'collapsed');
-  }
-});
-resetButton.addEventListener('click', () => requestRebuild({ kind: 'reset' }));
-successResetButton.addEventListener('click', () => requestRebuild({ kind: 'reset' }));
-dismissSuccessButton.addEventListener('click', () => {
-  successToast.dataset.visible = 'false';
-});
-startAdvancedButton.addEventListener('click', () => {
+element('edit-plugin').addEventListener('click', () => {
   const advanced = currentQuest.metadata.postPassReview.advancedChallenge;
-  if (advanced) requestRebuild({ kind: 'advanced', editorFile: advanced.editorFile });
+  void openPluginEditor(advancedMode && advanced ? advanced.editorFile : currentQuest.metadata.editor.file);
 });
+element('solution-open-editor').addEventListener('click', () => void openPluginEditor(currentQuest.metadata.editor.file));
+element('view-target').addEventListener('click', () => void viewTarget());
+element('reset').addEventListener('click', () => requestRebuild({ kind: 'reset' }));
+element('success-reset').addEventListener('click', () => requestRebuild({ kind: 'reset' }));
+element('retry-runtime').addEventListener('click', () => void rebuild({ kind: 'reset' }));
+element('start-advanced').addEventListener('click', () => requestRebuild({ kind: 'advanced' }));
+element('dismiss-success').addEventListener('click', () => { element('success-toast').dataset.visible = 'false'; });
+element('open-hints').addEventListener('click', () => layout.open('hints'));
 revealHintButton.addEventListener('click', addNextHint);
-
-copyQueryButton.addEventListener('click', async () => {
-  try {
-    await navigator.clipboard.writeText(searchQuery.textContent ?? '');
-    researchClue.dataset.copied = 'true';
-    copyQueryButton.setAttribute('aria-label', '已复制检索线索');
-    window.setTimeout(() => {
-      delete researchClue.dataset.copied;
-      copyQueryButton.setAttribute('aria-label', '复制检索线索');
-    }, 1800);
-  } catch {
-    const range = document.createRange();
-    range.selectNodeContents(searchQuery);
-    window.getSelection()?.removeAllRanges();
-    window.getSelection()?.addRange(range);
-  }
-});
-
-async function copyAdvancedInstruction(button: HTMLButtonElement, instruction: string): Promise<void> {
-  try {
-    await navigator.clipboard.writeText(instruction);
-    button.dataset.copied = 'true';
-    button.setAttribute('aria-label', '已复制生产级修复代码');
-    button.title = '已复制';
-    window.setTimeout(() => {
-      delete button.dataset.copied;
-      button.setAttribute('aria-label', '复制生产级修复代码');
-      button.title = '复制修复代码';
-    }, 1800);
-  } catch {
-    const range = document.createRange();
-    const source = button.parentElement?.querySelector('code');
-    if (!source) return;
-    range.selectNodeContents(source);
-    window.getSelection()?.removeAllRanges();
-    window.getSelection()?.addRange(range);
-  }
+for (const [buttonId, sourceId] of [
+  ['copy-query', 'search-query'], ['copy-solution', 'solution-after'],
+  ['copy-advanced-instruction', 'advanced-instruction'], ['copy-advanced-active-instruction', 'advanced-active-instruction'],
+]) {
+  element<HTMLButtonElement>(buttonId).addEventListener('click', () => void copyCode(element<HTMLButtonElement>(buttonId), element(sourceId)));
 }
-
-copyAdvancedInstructionButton.addEventListener('click', () => {
-  void copyAdvancedInstruction(copyAdvancedInstructionButton, advancedInstruction.textContent ?? '');
-});
-copyAdvancedActiveInstructionButton.addEventListener('click', () => {
-  void copyAdvancedInstruction(copyAdvancedActiveInstructionButton, advancedActiveInstruction.textContent ?? '');
+window.addEventListener('beforeunload', (event) => {
+  if (!hasEditsRisk) return;
+  event.preventDefault();
+  event.returnValue = '';
 });
 
-restoreMissionPanelWidth();
-setMissionPanelCollapsed(false);
-setMissionView('overview');
-renderFullscreenState(false);
 renderQuest();
+setupOnboarding();
 refreshIcons();
-void boot();
-
-// Clean up the obsolete workspace-layout preference from the previous layout switcher.
-try {
-  window.localStorage.removeItem('seo-operator-lab:workspace-layout');
-} catch {
-  // Storage may be unavailable; the stale key is harmless.
-}
+void runtime.boot(currentQuest).then((ready) => {
+  if (!ready) return;
+  bootCover(false);
+  setProgress('ready');
+  setStatus('环境已就绪；先点顶部「① 运行验证」', 'ready');
+});
